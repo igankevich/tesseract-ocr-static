@@ -3,7 +3,6 @@ use core::ops::Deref;
 use core::ops::DerefMut;
 use core::ptr::NonNull;
 
-use crate::c;
 use crate::BlockType;
 use crate::Image;
 use crate::LayoutLevel;
@@ -16,6 +15,7 @@ use crate::Rectangle;
 use crate::Tesseract;
 use crate::TextlineOrder;
 use crate::WritingDirection;
+use crate::c;
 
 /// Layout analysis engine.
 ///
@@ -50,6 +50,12 @@ impl LayoutAnalyzer {
     #[inline]
     fn as_ptr(&self) -> *mut c::TessBaseAPI {
         self.base.ptr.as_ptr()
+    }
+}
+
+impl Default for LayoutAnalyzer {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

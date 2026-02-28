@@ -2,8 +2,8 @@ use core::mem::size_of;
 use core::mem::size_of_val;
 use core::ptr::NonNull;
 
-use crate::c;
 use crate::InvalidImage;
+use crate::c;
 
 pub struct Image {
     pub(crate) ptr: NonNull<c::PIX>,

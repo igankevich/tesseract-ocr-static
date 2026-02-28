@@ -1,12 +1,14 @@
+#![allow(clippy::unwrap_used)]
+
 use bindgen::callbacks::ParseCallbacks;
 use command_error::CommandExt;
 use flate2::read::GzDecoder;
 use hex_literal::hex;
 use sha2::Digest;
 use sha2::Sha256;
+use std::fs::File;
 use std::fs::create_dir_all;
 use std::fs::remove_dir_all;
-use std::fs::File;
 use std::io::BufWriter;
 use std::io::Write;
 use std::path::Path;
@@ -68,7 +70,7 @@ fn main() {
     let bindings = bindgen::Builder::default()
         .header("wrapper.h")
         .clang_arg("-DNO_CONSOLE_IO")
-        .clang_arg(&format!("-I{}/include", root_dir.display()))
+        .clang_arg(format!("-I{}/include", root_dir.display()))
         .clang_arg(
             "-I/gnu/store/wz6d1vxvlijb3837r13r3h0pd4q8609i-clang-20.1.8/lib/clang/20/include",
         )
@@ -162,8 +164,8 @@ fn build_with_cmake(
         .current_dir(&build_dir)
         .status_checked()
         .unwrap();
-    let _ = remove_dir_all(&root_dir.join("share").join("man"));
-    let _ = remove_dir_all(&root_dir.join("share").join("doc"));
+    let _ = remove_dir_all(root_dir.join("share").join("man"));
+    let _ = remove_dir_all(root_dir.join("share").join("doc"));
     remove_dir_all(&build_dir).unwrap();
 }
 
@@ -182,12 +184,14 @@ fn build_zlib() {
     });
     let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
     let root_dir = out_dir.join("root");
-    remove_dir_all(&root_dir.join("lib64").join("cmake").join("zlib")).unwrap();
+    remove_dir_all(root_dir.join("lib64").join("cmake").join("zlib")).unwrap();
 }
 
 fn build_libpng() {
     download_tar_gz(
-        &format!("https://downloads.sourceforge.net/project/libpng/libpng16/{LIBPNG_VERSION}/libpng-{LIBPNG_VERSION}.tar.gz"),
+        &format!(
+            "https://downloads.sourceforge.net/project/libpng/libpng16/{LIBPNG_VERSION}/libpng-{LIBPNG_VERSION}.tar.gz"
+        ),
         LIBPNG_SHA2,
         &format!("libpng-{LIBPNG_VERSION}.tar.gz"),
     );
@@ -201,14 +205,14 @@ fn build_libpng() {
     });
     let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
     let root_dir = out_dir.join("root");
-    remove_dir_all(&root_dir.join("lib64").join("cmake").join("PNG")).unwrap();
-    remove_dir_all(&root_dir.join("lib64").join("libpng")).unwrap();
+    remove_dir_all(root_dir.join("lib64").join("cmake").join("PNG")).unwrap();
+    remove_dir_all(root_dir.join("lib64").join("libpng")).unwrap();
 }
 
 fn build_libjpeg_turbo() {
     let dirname = format!("libjpeg-turbo-{LIBJPEG_TURBO_VERSION}");
     fetch_git(
-        &format!("https://github.com/libjpeg-turbo/libjpeg-turbo"),
+        "https://github.com/libjpeg-turbo/libjpeg-turbo",
         LIBJPEG_TURBO_VERSION,
         &dirname,
     );
@@ -223,7 +227,7 @@ fn build_libjpeg_turbo() {
     });
     let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
     let root_dir = out_dir.join("root");
-    remove_dir_all(&root_dir.join("lib64").join("cmake").join("libjpeg-turbo")).unwrap();
+    remove_dir_all(root_dir.join("lib64").join("cmake").join("libjpeg-turbo")).unwrap();
 }
 
 fn build_libtiff() {
@@ -248,13 +252,13 @@ fn build_libtiff() {
     });
     let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
     let root_dir = out_dir.join("root");
-    remove_dir_all(&root_dir.join("lib64").join("cmake").join("tiff")).unwrap();
+    remove_dir_all(root_dir.join("lib64").join("cmake").join("tiff")).unwrap();
 }
 
 fn build_libwebp() {
     let dirname = format!("libwebp-{LIBWEBP_VERSION}");
     fetch_git(
-        &format!("https://github.com/webmproject/libwebp"),
+        "https://github.com/webmproject/libwebp",
         &format!("v{LIBWEBP_VERSION}"),
         &dirname,
     );
@@ -279,13 +283,13 @@ fn build_libwebp() {
     });
     let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
     let root_dir = out_dir.join("root");
-    remove_dir_all(&root_dir.join("share").join("WebP").join("cmake")).unwrap();
+    remove_dir_all(root_dir.join("share").join("WebP").join("cmake")).unwrap();
 }
 
 fn build_leptonica() {
     let dirname = format!("leptonica-{LEPTONICA_VERSION}");
     fetch_git(
-        &format!("https://github.com/DanBloomberg/leptonica"),
+        "https://github.com/DanBloomberg/leptonica",
         LEPTONICA_VERSION,
         &dirname,
     );
@@ -307,7 +311,7 @@ fn build_leptonica() {
 fn build_tesseract() {
     let dirname = format!("tesseract-{TESSERACT_VERSION}");
     fetch_git(
-        &format!("https://github.com/tesseract-ocr/tesseract"),
+        "https://github.com/tesseract-ocr/tesseract",
         TESSERACT_VERSION,
         &dirname,
     );
@@ -320,7 +324,11 @@ fn build_tesseract() {
     .unwrap();
     // Patch UB.
     substitute(
-        out_dir.join(&dirname).join("src").join("api").join("capi.cpp"),
+        out_dir
+            .join(&dirname)
+            .join("src")
+            .join("api")
+            .join("capi.cpp"),
         &[
             ("bool bool_is_list_item;", "bool bool_is_list_item = false;"),
             ("bool bool_is_crown;", "bool bool_is_crown = false;"),

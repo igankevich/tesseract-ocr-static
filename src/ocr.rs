@@ -4,7 +4,6 @@ use core::ops::Deref;
 use core::ops::DerefMut;
 use core::ptr::NonNull;
 
-use crate::c;
 use crate::Element;
 use crate::FontAttrs;
 use crate::Image;
@@ -17,8 +16,9 @@ use crate::Rectangle;
 use crate::Tesseract;
 use crate::Text;
 use crate::Utf8Text;
+use crate::c;
 
-const ENGLISH: &'static CStr = c"eng";
+const ENGLISH: &CStr = c"eng";
 
 /// OCR configuration.
 #[derive(Debug)]
@@ -530,6 +530,8 @@ pub struct ChoiceIterator<'a> {
 }
 
 impl ChoiceIterator<'_> {
+    /// Returns the next choice.
+    #[allow(clippy::should_implement_trait)]
     pub fn next(&mut self) -> Option<ClassifierChoice<'_>> {
         let ret = unsafe { c::TessChoiceIteratorNext(self.ptr.as_ptr()) };
         (ret != 0).then_some(ClassifierChoice { iter: self })

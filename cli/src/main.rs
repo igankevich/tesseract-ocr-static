@@ -41,7 +41,10 @@ fn main() -> anyhow::Result<()> {
     let tmp_output_file = tmp_dir.path().join("vars");
     let tess = TextRecognizer::new()?;
     tess.print_variables_to_file(&CString::new(
-        tmp_output_file.clone().into_os_string().into_encoded_bytes(),
+        tmp_output_file
+            .clone()
+            .into_os_string()
+            .into_encoded_bytes(),
     )?)?;
     let reader = BufReader::new(fs::File::open(&tmp_output_file)?);
     let mut lines: Vec<_> = reader.lines().map(|line| line.unwrap()).collect();
@@ -65,7 +68,7 @@ fn main() -> anyhow::Result<()> {
             .ok_or_else(|| anyhow!("Invalid `print_variables_to_file` output"))?;
         let default_value_str =
             if default_value.parse::<i64>().is_ok() || default_value.parse::<f64>().is_ok() {
-                format!("{default_value}")
+                default_value.to_string()
             } else {
                 format!("{default_value:?}")
             };

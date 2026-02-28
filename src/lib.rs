@@ -87,7 +87,7 @@ unsafe extern "C" fn cancel_callback<C: FnMut(i32) -> bool>(
     words: i32,
 ) -> bool {
     let func: *mut C = cancel_this.cast();
-    let func: &mut C = unsafe { core::mem::transmute(func) };
+    let func: &mut C = unsafe { &mut *func };
     func(words)
 }
 
@@ -102,6 +102,12 @@ impl Monitor<()> {
         let ptr = unsafe { c::TessMonitorCreate() };
         let ptr = NonNull::new(ptr).expect("TessMonitorCreate returned NULL");
         Self { ptr, cancel: None }
+    }
+}
+
+impl Default for Monitor<()> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

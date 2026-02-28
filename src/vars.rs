@@ -4,10 +4,10 @@ use std::io::BufRead;
 use std::io::BufReader;
 use std::path::Path;
 
-use crate::c;
 use crate::InvalidVariable;
 use crate::Tesseract;
 use crate::WriteFailed;
+use crate::c;
 
 impl Tesseract {
     /// Set tesseract variable.
@@ -104,11 +104,7 @@ impl Tesseract {
     pub fn print_variables_to_file(&self, filename: &CStr) -> Result<(), WriteFailed> {
         let ret =
             unsafe { c::TessBaseAPIPrintVariablesToFile(self.ptr.as_ptr(), filename.as_ptr()) };
-        if ret < 0 {
-            Err(WriteFailed)
-        } else {
-            Ok(())
-        }
+        if ret < 0 { Err(WriteFailed) } else { Ok(()) }
     }
 }
 
