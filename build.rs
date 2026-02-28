@@ -54,7 +54,7 @@ fn main() {
     build_tesseract();
     let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
     let root_dir = out_dir.join("root");
-    println!("cargo:rustc-link-search={}/lib64", root_dir.display());
+    println!("cargo:rustc-link-search={}/lib", root_dir.display());
     println!("cargo:rustc-link-lib=static=tesseract");
     println!("cargo:rustc-link-lib=static=leptonica");
     println!("cargo:rustc-link-lib=static=tiff");
@@ -145,11 +145,12 @@ fn build_with_cmake(
         Command::new("cmake")
             .arg(format!("-DCMAKE_INSTALL_PREFIX={}", root_dir.display()))
             .arg("-DCMAKE_BUILD_TYPE=Release")
+            .arg("-DCMAKE_INSTALL_LIBDIR=lib")
             .arg(&archive_dir)
             .env("CFLAGS", CFLAGS)
             .env("CXXFLAGS", CXXFLAGS)
             .env("LDFLAGS", LDFLAGS)
-            .env("PKG_CONFIG_PATH", root_dir.join("lib64").join("pkgconfig"))
+            .env("PKG_CONFIG_PATH", root_dir.join("lib").join("pkgconfig"))
             .current_dir(&build_dir),
         &root_dir,
     )
@@ -184,7 +185,7 @@ fn build_zlib() {
     });
     let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
     let root_dir = out_dir.join("root");
-    remove_dir_all(root_dir.join("lib64").join("cmake").join("zlib")).unwrap();
+    remove_dir_all(root_dir.join("lib").join("cmake").join("zlib")).unwrap();
 }
 
 fn build_libpng() {
@@ -205,8 +206,8 @@ fn build_libpng() {
     });
     let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
     let root_dir = out_dir.join("root");
-    remove_dir_all(root_dir.join("lib64").join("cmake").join("PNG")).unwrap();
-    remove_dir_all(root_dir.join("lib64").join("libpng")).unwrap();
+    remove_dir_all(root_dir.join("lib").join("cmake").join("PNG")).unwrap();
+    remove_dir_all(root_dir.join("lib").join("libpng")).unwrap();
 }
 
 fn build_libjpeg_turbo() {
@@ -227,7 +228,7 @@ fn build_libjpeg_turbo() {
     });
     let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
     let root_dir = out_dir.join("root");
-    remove_dir_all(root_dir.join("lib64").join("cmake").join("libjpeg-turbo")).unwrap();
+    remove_dir_all(root_dir.join("lib").join("cmake").join("libjpeg-turbo")).unwrap();
 }
 
 fn build_libtiff() {
@@ -252,7 +253,7 @@ fn build_libtiff() {
     });
     let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
     let root_dir = out_dir.join("root");
-    remove_dir_all(root_dir.join("lib64").join("cmake").join("tiff")).unwrap();
+    remove_dir_all(root_dir.join("lib").join("cmake").join("tiff")).unwrap();
 }
 
 fn build_libwebp() {
