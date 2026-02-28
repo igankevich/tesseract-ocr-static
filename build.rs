@@ -6,9 +6,6 @@ use flate2::read::GzDecoder;
 use hex_literal::hex;
 use sha2::Digest;
 use sha2::Sha256;
-use std::fs::File;
-use std::fs::create_dir_all;
-use std::fs::remove_dir_all;
 use std::io::BufWriter;
 use std::io::Write;
 use std::path::Path;
@@ -96,7 +93,8 @@ impl ParseCallbacks for DoxygenComments {
 fn download_tar_gz(url: &str, sha2: [u8; 32], filename: &str) {
     let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
     let archive_file = out_dir.join(filename);
-    let mut file_writer = HashingWriter::new(BufWriter::new(File::create(&archive_file).unwrap()));
+    let mut file_writer =
+        HashingWriter::new(BufWriter::new(fs::File::create(&archive_file).unwrap()));
     reqwest::blocking::get(url)
         .unwrap()
         .copy_to(&mut file_writer)
@@ -104,7 +102,7 @@ fn download_tar_gz(url: &str, sha2: [u8; 32], filename: &str) {
     let (hash, mut writer) = file_writer.into_inner();
     writer.flush().unwrap();
     assert_eq!(sha2, hash);
-    let mut archive = tar::Archive::new(GzDecoder::new(File::open(&archive_file).unwrap()));
+    let mut archive = tar::Archive::new(GzDecoder::new(fs::File::open(&archive_file).unwrap()));
     archive.unpack(&out_dir).unwrap();
 }
 
@@ -139,8 +137,8 @@ fn build_with_cmake(
     let build_dir = out_dir.join("build");
     let root_dir = out_dir.join("root");
     let archive_dir = out_dir.join(archive_dir);
-    let _ = remove_dir_all(&build_dir);
-    create_dir_all(&build_dir).unwrap();
+    let _ = fs::remove_dir_all(&build_dir);
+    fs::create_dir_all(&build_dir).unwrap();
     configure(
         Command::new("cmake")
             .arg(format!("-DCMAKE_INSTALL_PREFIX={}", root_dir.display()))
@@ -165,9 +163,9 @@ fn build_with_cmake(
         .current_dir(&build_dir)
         .status_checked()
         .unwrap();
-    let _ = remove_dir_all(root_dir.join("share").join("man"));
-    let _ = remove_dir_all(root_dir.join("share").join("doc"));
-    remove_dir_all(&build_dir).unwrap();
+    let _ = fs::remove_dir_all(root_dir.join("share").join("man"));
+    let _ = fs::remove_dir_all(root_dir.join("share").join("doc"));
+    fs::remove_dir_all(&build_dir).unwrap();
 }
 
 fn build_zlib() {
@@ -185,7 +183,7 @@ fn build_zlib() {
     });
     let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
     let root_dir = out_dir.join("root");
-    remove_dir_all(root_dir.join("lib").join("cmake").join("zlib")).unwrap();
+    fs::remove_dir_all(root_dir.join("lib").join("cmake").join("zlib")).unwrap();
 }
 
 fn build_libpng() {
@@ -206,8 +204,8 @@ fn build_libpng() {
     });
     let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
     let root_dir = out_dir.join("root");
-    remove_dir_all(root_dir.join("lib").join("cmake").join("PNG")).unwrap();
-    remove_dir_all(root_dir.join("lib").join("libpng")).unwrap();
+    fs::remove_dir_all(root_dir.join("lib").join("cmake").join("PNG")).unwrap();
+    fs::remove_dir_all(root_dir.join("lib").join("libpng")).unwrap();
 }
 
 fn build_libjpeg_turbo() {
@@ -228,7 +226,7 @@ fn build_libjpeg_turbo() {
     });
     let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
     let root_dir = out_dir.join("root");
-    remove_dir_all(root_dir.join("lib").join("cmake").join("libjpeg-turbo")).unwrap();
+    fs::remove_dir_all(root_dir.join("lib").join("cmake").join("libjpeg-turbo")).unwrap();
 }
 
 fn build_libtiff() {
@@ -253,7 +251,7 @@ fn build_libtiff() {
     });
     let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
     let root_dir = out_dir.join("root");
-    remove_dir_all(root_dir.join("lib").join("cmake").join("tiff")).unwrap();
+    fs::remove_dir_all(root_dir.join("lib").join("cmake").join("tiff")).unwrap();
 }
 
 fn build_libwebp() {
@@ -284,7 +282,7 @@ fn build_libwebp() {
     });
     let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
     let root_dir = out_dir.join("root");
-    remove_dir_all(root_dir.join("share").join("WebP").join("cmake")).unwrap();
+    fs::remove_dir_all(root_dir.join("share").join("WebP").join("cmake")).unwrap();
 }
 
 fn build_leptonica() {
@@ -318,7 +316,7 @@ fn build_tesseract() {
     );
     // Executable causes troubles with static linking.
     let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
-    std::fs::write(
+    fs::write(
         out_dir.join(&dirname).join("src").join("tesseract.cpp"),
         "int main() { return 0; }",
     )
@@ -349,11 +347,11 @@ fn build_tesseract() {
 }
 
 fn substitute(path: impl AsRef<Path>, rules: &[(impl AsRef<str>, impl AsRef<str>)]) {
-    let mut text = std::fs::read_to_string(path.as_ref()).unwrap();
+    let mut text = fs::read_to_string(path.as_ref()).unwrap();
     for (value, replacement) in rules {
         text = text.replace(value.as_ref(), replacement.as_ref());
     }
-    std::fs::write(path.as_ref(), text.as_bytes()).unwrap();
+    fs::write(path.as_ref(), text.as_bytes()).unwrap();
 }
 
 struct HashingWriter<W: Write> {

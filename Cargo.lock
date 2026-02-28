@@ -1339,6 +1339,7 @@ dependencies = [
  "command-error",
  "doxygen-rs",
  "flate2",
+ "fs-err",
  "hex-literal",
  "jobserver",
  "reqwest",

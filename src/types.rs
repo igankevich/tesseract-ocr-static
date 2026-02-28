@@ -67,6 +67,7 @@ define_enum! {
     (RawLine TessPageSegMode_PSM_RAW_LINE "Treat the image as a single text line, bypassing hacks that are Tesseract-specific.")
 }
 
+#[allow(clippy::derivable_impls)]
 impl Default for PageSegmentationMode {
     fn default() -> Self {
         Self::SingleBlock
