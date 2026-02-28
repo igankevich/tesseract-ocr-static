@@ -3,6 +3,8 @@ use core::marker::PhantomData;
 use core::ops::Deref;
 use core::ops::DerefMut;
 use core::ptr::NonNull;
+use std::os::raw::c_void;
+use std::time::Duration;
 
 use crate::Element;
 use crate::FontAttrs;
@@ -95,8 +97,44 @@ impl TextRecognizer {
         &'a mut self,
         image: &Image,
     ) -> Result<RecognitionResults<'a>, RecognitionFailed> {
+        let monitor: Option<Monitor<()>> = None;
+        self.do_recognize_text(image, monitor)
+    }
+
+    /// Recognizes text in the provided image and returns an iterator over the results.
+    ///
+    /// Timeout is the max. time spent for text recognition.
+    pub fn recognize_text_with_timeout<'a>(
+        &'a mut self,
+        image: &Image,
+        timeout: Duration,
+    ) -> Result<RecognitionResults<'a>, RecognitionFailed> {
+        let mut monitor = Monitor::<()>::new();
+        monitor.set_timeout(timeout);
+        self.do_recognize_text(image, Some(monitor))
+    }
+
+    /// Recognizes text in the provided image and returns an iterator over the results.
+    ///
+    /// The monitor is used to track the progress and set the timeout.
+    pub fn recognize_text_with_monitor<'a, C>(
+        &'a mut self,
+        image: &Image,
+        monitor: Monitor<C>,
+    ) -> Result<RecognitionResults<'a>, RecognitionFailed> {
+        self.do_recognize_text(image, Some(monitor))
+    }
+
+    fn do_recognize_text<'a, C>(
+        &'a mut self,
+        image: &Image,
+        monitor: Option<Monitor<C>>,
+    ) -> Result<RecognitionResults<'a>, RecognitionFailed> {
         unsafe { c::TessBaseAPISetImage2(self.as_ptr(), image.ptr.as_ptr()) };
-        let ret = unsafe { c::TessBaseAPIRecognize(self.as_ptr(), core::ptr::null_mut()) };
+        let monitor_ptr = monitor
+            .map(|m| m.ptr.as_ptr())
+            .unwrap_or(core::ptr::null_mut());
+        let ret = unsafe { c::TessBaseAPIRecognize(self.as_ptr(), monitor_ptr) };
         if ret < 0 {
             return Err(RecognitionFailed);
         }
@@ -110,6 +148,44 @@ impl TextRecognizer {
         image: &Image,
         rect: &Rectangle,
     ) -> Result<RecognitionResults<'a>, RecognitionFailed> {
+        let monitor: Option<Monitor<()>> = None;
+        self.do_recognize_text_in_rect(image, rect, monitor)
+    }
+
+    /// Recognizes text in the specified rectangle of the provided image and
+    /// returns an iterator over the results.
+    ///
+    /// Timeout is the max. time spent for text recognition.
+    pub fn recognize_text_in_rect_with_timeout<'a>(
+        &'a mut self,
+        image: &Image,
+        rect: &Rectangle,
+        timeout: Duration,
+    ) -> Result<RecognitionResults<'a>, RecognitionFailed> {
+        let mut monitor = Monitor::<()>::new();
+        monitor.set_timeout(timeout);
+        self.do_recognize_text_in_rect(image, rect, Some(monitor))
+    }
+
+    /// Recognizes text in the specified rectangle of the provided image and
+    /// returns an iterator over the results.
+    ///
+    /// The monitor is used to track the progress and set the timeout.
+    pub fn recognize_text_in_rect_with_monitor<'a, C>(
+        &'a mut self,
+        image: &Image,
+        rect: &Rectangle,
+        monitor: Monitor<C>,
+    ) -> Result<RecognitionResults<'a>, RecognitionFailed> {
+        self.do_recognize_text_in_rect(image, rect, Some(monitor))
+    }
+
+    fn do_recognize_text_in_rect<'a, C>(
+        &'a mut self,
+        image: &Image,
+        rect: &Rectangle,
+        monitor: Option<Monitor<C>>,
+    ) -> Result<RecognitionResults<'a>, RecognitionFailed> {
         unsafe { c::TessBaseAPISetImage2(self.as_ptr(), image.ptr.as_ptr()) };
         unsafe {
             c::TessBaseAPISetRectangle(
@@ -120,7 +196,10 @@ impl TextRecognizer {
                 rect.height as i32,
             )
         };
-        let ret = unsafe { c::TessBaseAPIRecognize(self.as_ptr(), core::ptr::null_mut()) };
+        let monitor_ptr = monitor
+            .map(|m| m.ptr.as_ptr())
+            .unwrap_or(core::ptr::null_mut());
+        let ret = unsafe { c::TessBaseAPIRecognize(self.as_ptr(), monitor_ptr) };
         if ret < 0 {
             return Err(RecognitionFailed);
         }
@@ -541,5 +620,83 @@ impl ChoiceIterator<'_> {
 impl Drop for ChoiceIterator<'_> {
     fn drop(&mut self) {
         unsafe { c::TessChoiceIteratorDelete(self.ptr.as_ptr()) };
+    }
+}
+
+unsafe extern "C" fn cancel_callback<C: FnMut(i32) -> bool>(
+    cancel_this: *mut c_void,
+    words: i32,
+) -> bool {
+    let func: *mut C = cancel_this.cast();
+    let func: &mut C = unsafe { &mut *func };
+    func(words)
+}
+
+/// Monitor tracks text recognition progress and can be used to set the timeout.
+pub struct Monitor<C> {
+    ptr: NonNull<c::ETEXT_DESC>,
+    #[allow(unused)]
+    cancel: Option<Box<C>>,
+}
+
+impl Monitor<()> {
+    /// Creates new monitor without timeout and without cancel callback.
+    pub fn new() -> Self {
+        let ptr = unsafe { c::TessMonitorCreate() };
+        let ptr = NonNull::new(ptr).expect("TessMonitorCreate returned NULL");
+        Self { ptr, cancel: None }
+    }
+}
+
+impl Default for Monitor<()> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<C: FnMut(i32) -> bool> Monitor<C> {
+    /// Creates new monitor with cancel callback.
+    pub fn with_cancel_callback(cancel: C) -> Self {
+        let ptr = unsafe { c::TessMonitorCreate() };
+        let ptr = NonNull::new(ptr).expect("TessMonitorCreate returned NULL");
+        unsafe { c::TessMonitorSetCancelFunc(ptr.as_ptr(), Some(cancel_callback::<C>)) };
+        let cancel = Box::new(cancel);
+        let cancel_raw = Box::into_raw(cancel);
+        unsafe { c::TessMonitorSetCancelThis(ptr.as_ptr(), cancel_raw as *mut c_void) };
+        let cancel = Some(unsafe { Box::from_raw(cancel_raw) });
+        Self { ptr, cancel }
+    }
+
+    /// Returns cancel callback.
+    pub fn get_cancel_callback(&mut self) -> &mut C {
+        self.cancel
+            .as_mut()
+            .expect("Set in the constructor")
+            .deref_mut()
+    }
+}
+
+impl<C> Monitor<C> {
+    /// Set progress callback function.
+    pub fn set_progress_callback_raw(&mut self, callback: c::TessProgressFunc) {
+        unsafe { c::TessMonitorSetProgressFunc(self.ptr.as_ptr(), callback) }
+    }
+
+    /// Get progress in _[0; 100]_ range.
+    pub fn get_progress(&self) -> u32 {
+        let ret = unsafe { c::TessMonitorGetProgress(self.ptr.as_ptr()) };
+        ret as u32
+    }
+
+    /// Set text recognition timeout.
+    pub fn set_timeout(&mut self, timeout: Duration) {
+        let millis = timeout.as_millis().try_into().unwrap_or(i32::MAX);
+        unsafe { c::TessMonitorSetDeadlineMSecs(self.ptr.as_ptr(), millis) };
+    }
+}
+
+impl<C> Drop for Monitor<C> {
+    fn drop(&mut self) {
+        unsafe { c::TessMonitorDelete(self.ptr.as_ptr()) }
     }
 }
