@@ -1,0 +1,25 @@
+[package]
+name = "rustyract"
+version = "0.1.0"
+edition = "2024"
+license = "Apache-2.0"
+
+[dependencies]
+
+[build-dependencies]
+bindgen = "0.72.1"
+command-error = "0.8.0"
+doxygen-rs = "0.4.2"
+flate2 = "1.1.9"
+hex-literal = "1.1.0"
+jobserver = "0.1.34"
+reqwest = { version = "0.13.2", features = ["blocking"] }
+sha2 = "0.10.9"
+tar = "0.4.44"
+
+[workspace]
+members = [".", "cli"]
+default-members = [".", "cli"]
+
+[lints.clippy]
+unwrap_used = "deny"

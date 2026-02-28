@@ -1,0 +1,142 @@
+# Wrapped library calls
+
+- [X] TessVersion
+- [X] TessDeleteText
+- [ ] TessDeleteTextArray
+- [ ] TessDeleteIntArray
+- [ ] TessTextRendererCreate
+- [ ] TessHOcrRendererCreate
+- [ ] TessHOcrRendererCreate2
+- [ ] TessAltoRendererCreate
+- [ ] TessPAGERendererCreate
+- [ ] TessTsvRendererCreate
+- [ ] TessPDFRendererCreate
+- [ ] TessUnlvRendererCreate
+- [ ] TessBoxTextRendererCreate
+- [ ] TessLSTMBoxRendererCreate
+- [ ] TessWordStrBoxRendererCreate
+- [ ] TessDeleteResultRenderer
+- [ ] TessResultRendererInsert
+- [ ] TessResultRendererNext
+- [ ] TessResultRendererBeginDocument
+- [ ] TessResultRendererAddImage
+- [ ] TessResultRendererEndDocument
+- [ ] TessResultRendererExtention
+- [ ] TessResultRendererTitle
+- [ ] TessResultRendererImageNum
+- [X] TessBaseAPICreate
+- [X] TessBaseAPIDelete
+- [ ] TessBaseAPISetInputName
+- [ ] TessBaseAPIGetInputName
+- [ ] TessBaseAPISetInputImage
+- [ ] TessBaseAPIGetInputImage
+- [ ] TessBaseAPIGetSourceYResolution
+- [X] TessBaseAPIGetDatapath
+- [ ] TessBaseAPISetOutputName
+- [X] TessBaseAPISetVariable
+- [X] TessBaseAPISetDebugVariable
+- [X] TessBaseAPIGetIntVariable
+- [X] TessBaseAPIGetBoolVariable
+- [X] TessBaseAPIGetDoubleVariable
+- [X] TessBaseAPIGetStringVariable
+- [ ] TessBaseAPIPrintVariables
+- [X] TessBaseAPIPrintVariablesToFile
+- [ ] TessBaseAPIInit1
+- [ ] TessBaseAPIInit2
+- [X] TessBaseAPIInit3
+- [ ] TessBaseAPIInit4
+- [ ] TessBaseAPIInit5
+- [ ] TessBaseAPIGetInitLanguagesAsString
+- [ ] TessBaseAPIGetLoadedLanguagesAsVector
+- [ ] TessBaseAPIGetAvailableLanguagesAsVector
+- [X] TessBaseAPIInitForAnalysePage
+- [X] TessBaseAPIReadConfigFile
+- [X] TessBaseAPIReadDebugConfigFile
+- [X] TessBaseAPISetPageSegMode
+- [X] TessBaseAPIGetPageSegMode
+- [ ] TessBaseAPIRect
+- [X] TessBaseAPIClearAdaptiveClassifier
+- [ ] TessBaseAPISetImage
+- [X] TessBaseAPISetImage2
+- [X] TessBaseAPISetSourceResolution
+- [X] TessBaseAPISetRectangle
+- [X] TessBaseAPIGetThresholdedImage
+- [X] TessBaseAPIGetGradient
+- [ ] TessBaseAPIGetRegions
+- [ ] TessBaseAPIGetTextlines
+- [ ] TessBaseAPIGetTextlines1
+- [ ] TessBaseAPIGetStrips
+- [ ] TessBaseAPIGetWords
+- [ ] TessBaseAPIGetConnectedComponents
+- [ ] TessBaseAPIGetComponentImages
+- [ ] TessBaseAPIGetComponentImages1
+- [X] TessBaseAPIGetThresholdedImageScaleFactor
+- [X] TessBaseAPIAnalyseLayout
+- [X] TessBaseAPIRecognize
+- [ ] TessBaseAPIProcessPages
+- [ ] TessBaseAPIProcessPage
+- [X] TessBaseAPIGetIterator
+- [ ] TessBaseAPIGetMutableIterator
+- [X] TessBaseAPIGetUTF8Text
+- [X] TessBaseAPIGetHOCRText
+- [X] TessBaseAPIGetAltoText
+- [X] TessBaseAPIGetPAGEText
+- [X] TessBaseAPIGetTsvText
+- [X] TessBaseAPIGetBoxText
+- [X] TessBaseAPIGetLSTMBoxText
+- [X] TessBaseAPIGetWordStrBoxText
+- [X] TessBaseAPIGetUNLVText
+- [ ] TessBaseAPIMeanTextConf
+- [ ] TessBaseAPIAllWordConfidences
+- [ ] TessBaseAPIAdaptToWordStr
+- [X] TessBaseAPIClear
+- [X] TessBaseAPIEnd
+- [X] TessBaseAPIIsValidWord
+- [X] TessBaseAPIGetTextDirection
+- [ ] TessBaseAPIGetUnichar
+- [X] TessBaseAPIClearPersistentCache
+- [ ] TessBaseAPIDetectOrientationScript
+- [X] TessBaseAPISetMinOrientationMargin
+- [X] TessBaseAPINumDawgs
+- [X] TessBaseAPIOem
+- [ ] TessBaseGetBlockTextOrientations
+- [X] TessPageIteratorDelete
+- [X] TessPageIteratorCopy
+- [X] TessPageIteratorBegin
+- [X] TessPageIteratorNext
+- [X] TessPageIteratorIsAtBeginningOf
+- [X] TessPageIteratorIsAtFinalElement
+- [X] TessPageIteratorBoundingBox
+- [X] TessPageIteratorBlockType
+- [X] TessPageIteratorGetBinaryImage
+- [X] TessPageIteratorGetImage
+- [X] TessPageIteratorBaseline
+- [X] TessPageIteratorOrientation
+- [X] TessPageIteratorParagraphInfo
+- [X] TessResultIteratorDelete
+- [X] TessResultIteratorCopy
+- [X] TessResultIteratorGetPageIterator
+- [ ] TessResultIteratorGetPageIteratorConst
+- [X] TessResultIteratorGetChoiceIterator
+- [X] TessResultIteratorNext
+- [X] TessResultIteratorGetUTF8Text
+- [X] TessResultIteratorConfidence
+- [X] TessResultIteratorWordRecognitionLanguage
+- [X] TessResultIteratorWordFontAttributes
+- [X] TessResultIteratorWordIsFromDictionary
+- [X] TessResultIteratorWordIsNumeric
+- [X] TessResultIteratorSymbolIsSuperscript
+- [X] TessResultIteratorSymbolIsSubscript
+- [X] TessResultIteratorSymbolIsDropcap
+- [X] TessChoiceIteratorDelete
+- [X] TessChoiceIteratorNext
+- [X] TessChoiceIteratorGetUTF8Text
+- [X] TessChoiceIteratorConfidence
+- [X] TessMonitorCreate
+- [X] TessMonitorDelete
+- [X] TessMonitorSetCancelFunc
+- [X] TessMonitorSetCancelThis
+- [ ] TessMonitorGetCancelThis
+- [X] TessMonitorSetProgressFunc
+- [X] TessMonitorGetProgress
+- [X] TessMonitorSetDeadlineMSecs
