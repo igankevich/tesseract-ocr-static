@@ -118,17 +118,15 @@ fn main() {
     //println!("cargo:rustc-link-lib=static=c");
     //println!("cargo:rustc-link-arg=-Wl,-nostdlib");
     //println!("cargo:rustc-link-arg=-Wl,-nolibc");
-    let bindings = bindgen::Builder::default()
+    let builder = bindgen::Builder::default()
         .header("wrapper.h")
         .clang_arg("-DNO_CONSOLE_IO")
-        .clang_arg("-nostdinc++")
-        .clang_arg("-std=c++20")
-        .clang_args(["-x", "c++"])
         .clang_arg(format!("-I{}/include", root_dir.display()))
-        .clang_arg(format!("-I{}/include/c++/v1", root_dir.display()))
-        .parse_callbacks(Box::new(IgnoreComments))
-        .generate()
-        .expect("Unable to generate bindings");
+        .parse_callbacks(Box::new(IgnoreComments));
+    if let Some(path) = std::env::var_os("LIBCLANG_INCLUDE") {
+        builder.clang_arg(format!("-I{}", path.display()));
+    }
+    let bindings = builder.generate().expect("Unable to generate bindings");
     let out_path = PathBuf::from(std::env::var("OUT_DIR").unwrap());
     bindings
         .write_to_file(out_path.join("bindings.rs"))
