@@ -121,6 +121,7 @@ fn main() {
     let builder = bindgen::Builder::default()
         .header("wrapper.h")
         .clang_arg("-DNO_CONSOLE_IO")
+        .clang_arg("-std=c23")
         .clang_arg(format!("-I{}/include", root_dir.display()))
         .parse_callbacks(Box::new(IgnoreComments));
     let builder = if let Some(path) = std::env::var_os("LIBCLANG_INCLUDE") {

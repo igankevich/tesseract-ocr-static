@@ -16,4 +16,6 @@ jobs:
           CXX: clang++-20
           LIBCLANG_PATH: /usr/lib/llvm-20/lib
           LIBCLANG_INCLUDE: /usr/lib/llvm-20/lib/clang/20/include
-        run: ./ci/test.sh
+        run: |
+          find /usr -name stdatomic.h
+          ./ci/test.sh
