@@ -372,6 +372,9 @@ fn build_libtiff() {
                 "-Dwebp=1",
                 "-Dzlib=1",
                 "-Djpeg=1",
+                "-Dzlib=1",
+                "-Dzstd=0",
+                "-Dlzma=0",
             ])
     });
     let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
