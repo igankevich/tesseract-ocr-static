@@ -88,6 +88,9 @@ fn is_musl_target() -> bool {
 fn main() {
     println!("cargo::rerun-if-changed=build.rs");
     println!("cargo::rerun-if-changed=wrapper.h");
+    println!("cargo::rerun-if-env-changed=CC");
+    println!("cargo::rerun-if-env-changed=CXX");
+    println!("cargo::rerun-if-env-changed=PATH");
     if is_musl_target() {
         build_musl();
     }
@@ -119,6 +122,7 @@ fn main() {
         .header("wrapper.h")
         .clang_arg("-DNO_CONSOLE_IO")
         .clang_arg(format!("-I{}/include", root_dir.display()))
+        .clang_arg(format!("-I{}/include/c++/v1", root_dir.display()))
         .clang_arg(
             "-I/gnu/store/wz6d1vxvlijb3837r13r3h0pd4q8609i-clang-20.1.8/lib/clang/20/include",
         )
