@@ -67,9 +67,14 @@ fn cxx_flags() -> String {
 
 fn ld_flags() -> String {
     format!(
-        "{LDFLAGS} --sysroot {} -nostdlib -Wl,-L{} -Wl,-lc",
+        "{LDFLAGS} --sysroot {} -Wl,-L{} {}",
         root_dir().display(),
         root_dir().join("lib").display(),
+        if is_musl_target() {
+            "-nostdlib -Wl,-lc"
+        } else {
+            ""
+        },
     )
 }
 
