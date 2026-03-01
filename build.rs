@@ -50,11 +50,15 @@ fn root_dir() -> PathBuf {
 }
 
 fn c_flags() -> String {
-    format!(
-        "{CFLAGS} --sysroot {} -isystem {}",
-        root_dir().display(),
-        root_dir().join("include").display()
-    )
+    if is_musl_target() {
+        format!(
+            "{CFLAGS} --sysroot {} -isystem {}",
+            root_dir().display(),
+            root_dir().join("include").display()
+        )
+    } else {
+        format!("{CFLAGS} -I{}", root_dir().join("include").display())
+    }
 }
 
 fn cxx_flags() -> String {
@@ -66,16 +70,15 @@ fn cxx_flags() -> String {
 }
 
 fn ld_flags() -> String {
-    format!(
-        "{LDFLAGS} --sysroot {} -Wl,-L{} {}",
-        root_dir().display(),
-        root_dir().join("lib").display(),
-        if is_musl_target() {
-            "-nostdlib -Wl,-lc"
-        } else {
-            ""
-        },
-    )
+    if is_musl_target() {
+        format!(
+            "{LDFLAGS} --sysroot {} -Wl,-L{} -nostdlib -Wl,-lc",
+            root_dir().display(),
+            root_dir().join("lib").display(),
+        )
+    } else {
+        format!("{LDFLAGS} -Wl,-L{}", root_dir().join("lib").display(),)
+    }
 }
 
 fn is_musl_target() -> bool {

@@ -8,7 +8,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
       - name: Install dependencies
-        run: sudo -n apt-get update -qq && sudo -n apt-get install -qqy nasm
+        run: sudo -n apt-get update -qq && sudo -n apt-get install -qqy nasm clang-20 lld-20 llvm-20
       - name: Test
         env:
           RUST_BACKTRACE: 1
