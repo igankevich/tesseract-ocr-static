@@ -12,4 +12,4 @@ jobs:
       - name: Test
         env:
           RUST_BACKTRACE: 1
-        run: env CC=clang-20 CXX=clang++-20 ./ci/test.sh
+        run: env CC=clang-20 CXX=clang++-20 LIBCLANG_PATH=/usr/lib/llvm-20/bin ./ci/test.sh
