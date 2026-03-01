@@ -205,8 +205,18 @@ fn configure_with_cmake(
             .arg("-DCMAKE_BUILD_TYPE=Release")
             .arg("-DCMAKE_INSTALL_LIBDIR=lib")
             .arg(&archive_dir)
-            .env("CC", "clang")
-            .env("CXX", "clang++")
+            .env(
+                "CC",
+                std::env::var_os("CC")
+                    .as_deref()
+                    .unwrap_or(OsStr::new("clang")),
+            )
+            .env(
+                "CXX",
+                std::env::var_os("CXX")
+                    .as_deref()
+                    .unwrap_or(OsStr::new("clang++")),
+            )
             .env("CFLAGS", c_flags())
             .env("CXXFLAGS", cxx_flags())
             .env("LDFLAGS", ld_flags())
