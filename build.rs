@@ -1,11 +1,6 @@
 #![allow(clippy::unwrap_used)]
 
-use bindgen::callbacks::ParseCallbacks;
-use command_error::CommandExt;
-use flate2::read::GzDecoder;
-use hex_literal::hex;
-use sha2::Digest;
-use sha2::Sha256;
+use std::ffi::OsStr;
 use std::io::BufWriter;
 use std::io::Write;
 use std::path::Path;
@@ -13,10 +8,19 @@ use std::path::PathBuf;
 use std::process::Command;
 use std::sync::OnceLock;
 
-const CFLAGS: &str = "-O3 -fPIC -fPIE";
-const CXXFLAGS: &str = CFLAGS;
+use bindgen::callbacks::ParseCallbacks;
+use command_error::CommandExt;
+use flate2::read::GzDecoder;
+use hex_literal::hex;
+use sha2::Digest;
+use sha2::Sha256;
+
+const CFLAGS: &str = "-O3 -fPIC -fPIE -D_GNU_SOURCE -I/gnu/store/wmgiqgp0mzyihvy24b70rm9x2qrmnvxy-linux-libre-headers-6.12.17/include";
 const LDFLAGS: &str = "-fPIC -fPIE";
 
+const MUSL_VERSION: &str = "1.2.5";
+const MUSL_SHA2: [u8; 32] =
+    hex!("83ff394502d1c334b040ea9bc66ec48bba453585e25b05f4bde3741d8245d883");
 const ZLIB_VERSION: &str = "1.3.2";
 const ZLIB_SHA2: [u8; 32] =
     hex!("bb329a0a2cd0274d05519d61c667c062e06990d72e125ee2dfa8de64f0119d16");
@@ -30,6 +34,7 @@ const LIBJPEG_TURBO_VERSION: &str = "3.1.3";
 const LIBWEBP_VERSION: &str = "1.6.0";
 const LEPTONICA_VERSION: &str = "1.87.0";
 const TESSERACT_VERSION: &str = "5.5.2";
+const LIBCXX_VERSION: &str = "22.1.0";
 
 static JOB_CLIENT: OnceLock<Option<jobserver::Client>> = OnceLock::new();
 
@@ -39,13 +44,50 @@ fn job_client() -> Option<&'static jobserver::Client> {
         .as_ref()
 }
 
+fn root_dir() -> PathBuf {
+    let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
+    out_dir.join("root")
+}
+
+fn c_flags() -> String {
+    format!(
+        "{CFLAGS} --sysroot {} -isystem {}",
+        root_dir().display(),
+        root_dir().join("include").display()
+    )
+}
+
+fn cxx_flags() -> String {
+    format!(
+        "{} -nostdinc++ -fno-exceptions -I{}",
+        c_flags(),
+        root_dir().join("include").join("c++").join("v1").display()
+    )
+}
+
+fn ld_flags() -> String {
+    format!(
+        "{LDFLAGS} --sysroot {} -nostdlib -Wl,-L{} -Wl,-lc",
+        root_dir().display(),
+        root_dir().join("lib").display(),
+    )
+}
+
+fn is_musl_target() -> bool {
+    std::env::var_os("CARGO_CFG_TARGET_ENV").as_deref() == Some(OsStr::new("musl"))
+}
+
 fn main() {
     println!("cargo::rerun-if-changed=build.rs");
     println!("cargo::rerun-if-changed=wrapper.h");
+    if is_musl_target() {
+        build_musl();
+    }
     build_zlib();
     build_libpng();
     build_libjpeg_turbo();
     build_libwebp();
+    build_libcxx();
     build_libtiff();
     build_leptonica();
     build_tesseract();
@@ -60,10 +102,11 @@ fn main() {
     println!("cargo:rustc-link-lib=static=jpeg");
     println!("cargo:rustc-link-lib=static=png");
     println!("cargo:rustc-link-lib=static=z");
-    println!(
-        "cargo:rustc-link-search=/gnu/store/lyk51h6jkdapjkbg0wxfxkjj5fq7aii4-gcc-14.3.0-lib/lib"
-    );
-    println!("cargo:rustc-link-lib=static=stdc++");
+    println!("cargo:rustc-link-lib=static=c++");
+    println!("cargo:rustc-link-lib=static=c++abi");
+    //println!("cargo:rustc-link-lib=static=c");
+    //println!("cargo:rustc-link-arg=-Wl,-nostdlib");
+    //println!("cargo:rustc-link-arg=-Wl,-nolibc");
     let bindings = bindgen::Builder::default()
         .header("wrapper.h")
         .clang_arg("-DNO_CONSOLE_IO")
@@ -71,7 +114,7 @@ fn main() {
         .clang_arg(
             "-I/gnu/store/wz6d1vxvlijb3837r13r3h0pd4q8609i-clang-20.1.8/lib/clang/20/include",
         )
-        .parse_callbacks(Box::new(DoxygenComments))
+        .parse_callbacks(Box::new(IgnoreComments))
         .generate()
         .expect("Unable to generate bindings");
     let out_path = PathBuf::from(std::env::var("OUT_DIR").unwrap());
@@ -81,12 +124,11 @@ fn main() {
 }
 
 #[derive(Debug)]
-struct DoxygenComments;
+struct IgnoreComments;
 
-impl ParseCallbacks for DoxygenComments {
-    fn process_comment(&self, comment: &str) -> Option<String> {
-        //Some(String::new())
-        Some(doxygen_rs::transform(comment))
+impl ParseCallbacks for IgnoreComments {
+    fn process_comment(&self, _comment: &str) -> Option<String> {
+        Some(String::new())
     }
 }
 
@@ -115,50 +157,68 @@ fn fetch_git(url: &str, tag: &str, dirname: &str) {
     Command::new("git")
         .arg("clone")
         .arg(format!("--revision={tag}"))
+        .arg("--depth=1")
         .arg(url)
         .arg(&dir)
         .status_checked()
         .unwrap();
 }
 
+fn hermetic_command(command: impl AsRef<OsStr>) -> Command {
+    let mut command = Command::new(command);
+    command.env_clear();
+    if let Some(path) = std::env::var_os("PATH") {
+        command.env("PATH", path);
+    }
+    command
+}
+
 fn make_command() -> Command {
-    let mut command = Command::new("make");
+    let mut command = hermetic_command("make");
     if let Some(client) = job_client() {
         client.configure_make(&mut command);
     }
     command
 }
 
-fn build_with_cmake(
-    archive_dir: &str,
+fn configure_with_cmake(
+    archive_dir: impl AsRef<Path>,
     configure: impl for<'a, 'b> FnOnce(&'a mut Command, &'b Path) -> &'a mut Command,
 ) {
     let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
-    let build_dir = out_dir.join("build");
+    let archive_dir = out_dir.join(archive_dir.as_ref());
+    let build_dir = archive_dir.join("__build__");
     let root_dir = out_dir.join("root");
-    let archive_dir = out_dir.join(archive_dir);
     let _ = fs::remove_dir_all(&build_dir);
     fs::create_dir_all(&build_dir).unwrap();
     configure(
-        Command::new("cmake")
+        hermetic_command("cmake")
             .arg(format!("-DCMAKE_INSTALL_PREFIX={}", root_dir.display()))
             .arg("-DCMAKE_BUILD_TYPE=Release")
             .arg("-DCMAKE_INSTALL_LIBDIR=lib")
             .arg(&archive_dir)
-            .env("CFLAGS", CFLAGS)
-            .env("CXXFLAGS", CXXFLAGS)
-            .env("LDFLAGS", LDFLAGS)
+            .env("CC", "clang")
+            .env("CXX", "clang++")
+            .env("CFLAGS", c_flags())
+            .env("CXXFLAGS", cxx_flags())
+            .env("LDFLAGS", ld_flags())
             .env("PKG_CONFIG_PATH", root_dir.join("lib").join("pkgconfig"))
             .current_dir(&build_dir),
         &root_dir,
     )
     .status_checked()
     .unwrap();
+}
+
+fn make_with_cmake(build_dir: impl AsRef<Path>) {
+    let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
+    let root_dir = out_dir.join("root");
     make_command()
+        .arg("VERBOSE=1")
         .current_dir(&build_dir)
         .status_checked()
         .unwrap();
-    Command::new("make")
+    hermetic_command("make")
         .arg("install")
         .current_dir(&build_dir)
         .status_checked()
@@ -166,6 +226,44 @@ fn build_with_cmake(
     let _ = fs::remove_dir_all(root_dir.join("share").join("man"));
     let _ = fs::remove_dir_all(root_dir.join("share").join("doc"));
     fs::remove_dir_all(&build_dir).unwrap();
+}
+
+fn build_with_cmake(
+    archive_dir: impl AsRef<Path>,
+    configure: impl for<'a, 'b> FnOnce(&'a mut Command, &'b Path) -> &'a mut Command,
+) {
+    configure_with_cmake(archive_dir.as_ref(), configure);
+    let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
+    let build_dir = out_dir.join(archive_dir).join("__build__");
+    make_with_cmake(build_dir);
+}
+
+fn build_musl() {
+    download_tar_gz(
+        &format!("https://git.musl-libc.org/cgit/musl/snapshot/musl-{MUSL_VERSION}.tar.gz"),
+        MUSL_SHA2,
+        &format!("musl-{MUSL_VERSION}.tar.gz"),
+    );
+    let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
+    let archive_dir = out_dir.join(format!("musl-{MUSL_VERSION}"));
+    let build_dir = archive_dir.join("__build__");
+    let root_dir = out_dir.join("root");
+    let _ = fs::remove_dir_all(&build_dir);
+    fs::create_dir_all(&build_dir).unwrap();
+    hermetic_command(archive_dir.join("configure"))
+        .current_dir(&build_dir)
+        .arg(format!("--prefix={}", root_dir.display()))
+        .arg("--enable-wrapper=clang")
+        .arg("--disable-shared=clang")
+        .env("AR", "llvm-ar")
+        .env("RANLIB", "llvm-ranlib")
+        .env("CC", "clang")
+        .env("CPPFLAGS", "-nostdinc")
+        .env("CFLAGS", "-O3 -fPIC -fPIE")
+        .env("LDFLAGS", "-fPIC -fPIE")
+        .status_checked()
+        .unwrap();
+    make_with_cmake(&build_dir);
 }
 
 fn build_zlib() {
@@ -194,13 +292,15 @@ fn build_libpng() {
         LIBPNG_SHA2,
         &format!("libpng-{LIBPNG_VERSION}.tar.gz"),
     );
-    build_with_cmake(&format!("libpng-{LIBPNG_VERSION}"), |command, _root_dir| {
-        command.args([
-            "-DPNG_SHARED=0",
-            "-DPNG_STATIC=1",
-            "-DPNG_TESTS=0",
-            "-DPNG_TOOLS=0",
-        ])
+    build_with_cmake(&format!("libpng-{LIBPNG_VERSION}"), |command, root_dir| {
+        command
+            .arg(format!("-DZLIB_ROOT={}", root_dir.display()))
+            .args([
+                "-DPNG_SHARED=0",
+                "-DPNG_STATIC=1",
+                "-DPNG_TESTS=0",
+                "-DPNG_TOOLS=0",
+            ])
     });
     let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
     let root_dir = out_dir.join("root");
@@ -235,19 +335,21 @@ fn build_libtiff() {
         LIBTIFF_SHA2,
         &format!("tiff-{LIBTIFF_VERSION}.tar.gz"),
     );
-    build_with_cmake(&format!("tiff-{LIBTIFF_VERSION}"), |command, _root_dir| {
-        command.args([
-            "-DBUILD_SHARED_LIBS=0",
-            "-Dtiff-static=1",
-            "-Dtiff-tools=0",
-            "-Dtiff-tests=0",
-            "-Dtiff-contrib=0",
-            "-Dtiff-docs=0",
-            "-Dtiff-install=1",
-            "-Dwebp=1",
-            "-Dzlib=1",
-            "-Djpeg=1",
-        ])
+    build_with_cmake(&format!("tiff-{LIBTIFF_VERSION}"), |command, root_dir| {
+        command
+            .arg(format!("-DZLIB_ROOT={}", root_dir.display()))
+            .args([
+                "-DBUILD_SHARED_LIBS=0",
+                "-Dtiff-static=1",
+                "-Dtiff-tools=0",
+                "-Dtiff-tests=0",
+                "-Dtiff-contrib=0",
+                "-Dtiff-docs=0",
+                "-Dtiff-install=1",
+                "-Dwebp=1",
+                "-Dzlib=1",
+                "-Djpeg=1",
+            ])
     });
     let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
     let root_dir = out_dir.join("root");
@@ -292,18 +394,22 @@ fn build_leptonica() {
         LEPTONICA_VERSION,
         &dirname,
     );
-    build_with_cmake(&dirname, |command, _root_dir| {
-        command.env("CPPFLAGS", "-DNO_CONSOLE_IO").args([
-            "-DBUILD_SHARED_LIBS=0",
-            "-DSTRICT_CONF=1",
-            "-DENABLE_ZLIB=1",
-            "-DENABLE_PNG=1",
-            "-DENABLE_GIF=0",
-            "-DENABLE_JPEG=1",
-            "-DENABLE_TIFF=1",
-            "-DENABLE_WEBP=1",
-            "-DENABLE_OPENJPEG=0",
-        ])
+    build_with_cmake(&dirname, |command, root_dir| {
+        let more_c_flags = format!("{} -DNO_CONSOLE_IO", c_flags());
+        command
+            .arg(format!("-DZLIB_ROOT={}", root_dir.display()))
+            .env("CFLAGS", more_c_flags)
+            .args([
+                "-DBUILD_SHARED_LIBS=0",
+                "-DSTRICT_CONF=1",
+                "-DENABLE_ZLIB=1",
+                "-DENABLE_PNG=1",
+                "-DENABLE_GIF=0",
+                "-DENABLE_JPEG=1",
+                "-DENABLE_TIFF=1",
+                "-DENABLE_WEBP=1",
+                "-DENABLE_OPENJPEG=0",
+            ])
     });
 }
 
@@ -334,7 +440,8 @@ fn build_tesseract() {
         ],
     );
     build_with_cmake(&dirname, |command, _root_dir| {
-        command.args([
+        let more_cxx_flags = format!("{} -DNO_CONSOLE_IO", cxx_flags());
+        command.env("CXXFLAGS", more_cxx_flags).args([
             "-DBUILD_SHARED_LIBS=0",
             "-DGRAPHICS_DISABLED=1",
             "-DDISABLED_LEGACY_ENGINE=0",
@@ -343,6 +450,114 @@ fn build_tesseract() {
             "-DDISABLE_ARCHIVE=1",
             "-DDISABLE_CURL=1",
         ])
+    });
+}
+
+fn build_libcxx() {
+    let dirname = format!("libcxx-{LIBCXX_VERSION}");
+    fetch_git(
+        "https://github.com/llvm/llvm-project",
+        &format!("llvmorg-{LIBCXX_VERSION}"),
+        &dirname,
+    );
+    let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
+    let _ = fs::remove_dir_all(out_dir.join("root").join("include").join("c++"));
+    build_with_cmake(
+        &Path::new(&dirname).join("libunwind"),
+        |command, _root_dir| {
+            command.args([
+                "-DLIBUNWIND_ENABLE_SHARED=0",
+                "-DLIBUNWIND_ENABLE_STATIC=1",
+                "-DLIBUNWIND_USE_COMPILER_RT=1",
+                "-DLIBUNWIND_INCLUDE_DOCS=0",
+                "-DLIBUNWIND_INCLUDE_TESTS=0",
+            ])
+        },
+    );
+    configure_with_cmake(&Path::new(&dirname).join("libcxx"), |command, root_dir| {
+        let cxx_flags = format!(
+            "{} -nostdinc++ {} -I{}",
+            if is_musl_target() { "-nostdinc" } else { "" },
+            cxx_flags(),
+            root_dir.join("include").join("c++").join("v1").display(),
+        );
+        eprintln!("Override libcxx CXXFLAGS = {cxx_flags:?}");
+        if is_musl_target() {
+            command.arg("-DLIBCXX_HAS_MUSL_LIBC=1");
+        }
+        command.env("CXXFLAGS", &cxx_flags).args([
+            "-DLIBCXX_ENABLE_EXCEPTIONS=0",
+            "-DLIBCXX_ENABLE_SHARED=0",
+            "-DLIBCXX_ENABLE_STATIC=1",
+            "-DLIBCXX_INCLUDE_TESTS=0",
+            "-DLIBCXX_INCLUDE_BENCHMARKS=0",
+            "-DLIBCXX_INCLUDE_DOCS=0",
+            "-DLIBCXX_USE_COMPILER_RT=1",
+            "-DLIBCXXABI_USE_LLVM_UNWINDER=0",
+            "-DLIBCXX_ENABLE_STATIC_ABI_LIBRARY=1",
+            "-DPython3_EXECUTABLE=python3",
+        ])
+    });
+    build_with_cmake(
+        &Path::new(&dirname).join("libcxxabi"),
+        |command, _root_dir| {
+            let cxx_flags = format!(
+                "{} -nostdinc++ -I{} -I{} {}",
+                if is_musl_target() { "-nostdinc" } else { "" },
+                out_dir
+                    .join(&dirname)
+                    .join("libcxx")
+                    .join("__build__")
+                    .join("include")
+                    .join("c++")
+                    .join("v1")
+                    .display(),
+                out_dir
+                    .join(&dirname)
+                    .join("libcxx")
+                    .join("include")
+                    .display(),
+                cxx_flags(),
+            );
+            eprintln!("Override CXXFLAGS = {cxx_flags:?}");
+            command.env("CXXFLAGS", &cxx_flags).args([
+                "-DLIBCXXABI_ENABLE_EXCEPTIONS=0",
+                "-DLIBCXXABI_SILENT_TERMINATE=1",
+                "-DLIBCXXABI_USE_LLVM_UNWINDER=0",
+                "-DLIBCXXABI_ENABLE_STATIC_UNWINDER=1",
+                "-DLIBCXXABI_USE_COMPILER_RT=1",
+                "-DLIBCXXABI_ENABLE_SHARED=0",
+                "-DLIBCXXABI_ENABLE_STATIC=1",
+                "-DLIBCXXABI_INCLUDE_TESTS=0",
+            ])
+        },
+    );
+    build_with_cmake(&Path::new(&dirname).join("libcxx"), |command, root_dir| {
+        let cxx_flags = format!(
+            "{} -nostdinc++ {} -I{}",
+            if is_musl_target() { "-nostdinc" } else { "" },
+            cxx_flags(),
+            root_dir.join("include").join("c++").join("v1").display(),
+        );
+        eprintln!("Override libcxx CXXFLAGS = {cxx_flags:?}");
+        if is_musl_target() {
+            command.arg("-DLIBCXX_HAS_MUSL_LIBC=1");
+        }
+        command
+            .env("CXXFLAGS", &cxx_flags)
+            .arg(format!("-DCMAKE_CXX_FLAGS_RELEASE={cxx_flags}"))
+            .args([
+                "-DLIBCXX_ENABLE_EXCEPTIONS=0",
+                "-DLIBCXX_ENABLE_SHARED=0",
+                "-DLIBCXX_ENABLE_STATIC=1",
+                "-DLIBCXX_INCLUDE_TESTS=0",
+                "-DLIBCXX_INCLUDE_BENCHMARKS=0",
+                "-DLIBCXX_INCLUDE_DOCS=0",
+                "-DLIBCXX_USE_COMPILER_RT=1",
+                "-DLIBCXXABI_USE_LLVM_UNWINDER=0",
+                "-DLIBCXX_ENABLE_STATIC_ABI_LIBRARY=1",
+                "-DPython3_EXECUTABLE=python3",
+            ])
     });
 }
 
