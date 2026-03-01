@@ -121,11 +121,9 @@ fn main() {
     let bindings = bindgen::Builder::default()
         .header("wrapper.h")
         .clang_arg("-DNO_CONSOLE_IO")
+        .clang_arg("-nostdinc++")
         .clang_arg(format!("-I{}/include", root_dir.display()))
         .clang_arg(format!("-I{}/include/c++/v1", root_dir.display()))
-        .clang_arg(
-            "-I/gnu/store/wz6d1vxvlijb3837r13r3h0pd4q8609i-clang-20.1.8/lib/clang/20/include",
-        )
         .parse_callbacks(Box::new(IgnoreComments))
         .generate()
         .expect("Unable to generate bindings");
