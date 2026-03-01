@@ -295,7 +295,7 @@ fn build_zlib() {
         ZLIB_SHA2,
         &format!("zlib-{ZLIB_VERSION}.tar.gz"),
     );
-    build_with_cmake(&format!("zlib-{ZLIB_VERSION}"), |command, _root_dir| {
+    build_with_cmake(format!("zlib-{ZLIB_VERSION}"), |command, _root_dir| {
         command.args([
             "-DZLIB_BUILD_TESTING=0",
             "-DZLIB_BUILD_SHARED=0",
@@ -315,7 +315,7 @@ fn build_libpng() {
         LIBPNG_SHA2,
         &format!("libpng-{LIBPNG_VERSION}.tar.gz"),
     );
-    build_with_cmake(&format!("libpng-{LIBPNG_VERSION}"), |command, root_dir| {
+    build_with_cmake(format!("libpng-{LIBPNG_VERSION}"), |command, root_dir| {
         command
             .arg(format!("-DZLIB_ROOT={}", root_dir.display()))
             .args([
@@ -358,7 +358,7 @@ fn build_libtiff() {
         LIBTIFF_SHA2,
         &format!("tiff-{LIBTIFF_VERSION}.tar.gz"),
     );
-    build_with_cmake(&format!("tiff-{LIBTIFF_VERSION}"), |command, root_dir| {
+    build_with_cmake(format!("tiff-{LIBTIFF_VERSION}"), |command, root_dir| {
         command
             .arg(format!("-DZLIB_ROOT={}", root_dir.display()))
             .args([
@@ -489,7 +489,7 @@ fn build_libcxx() {
     let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
     let _ = fs::remove_dir_all(out_dir.join("root").join("include").join("c++"));
     build_with_cmake(
-        &Path::new(&dirname).join("libunwind"),
+        Path::new(&dirname).join("libunwind"),
         |command, _root_dir| {
             command.args([
                 "-DLIBUNWIND_ENABLE_SHARED=0",
@@ -500,7 +500,7 @@ fn build_libcxx() {
             ])
         },
     );
-    configure_with_cmake(&Path::new(&dirname).join("libcxx"), |command, root_dir| {
+    configure_with_cmake(Path::new(&dirname).join("libcxx"), |command, root_dir| {
         let cxx_flags = format!(
             "{} -nostdinc++ {} -I{}",
             if is_musl_target() { "-nostdinc" } else { "" },
@@ -525,7 +525,7 @@ fn build_libcxx() {
         ])
     });
     build_with_cmake(
-        &Path::new(&dirname).join("libcxxabi"),
+        Path::new(&dirname).join("libcxxabi"),
         |command, _root_dir| {
             let cxx_flags = format!(
                 "{} -nostdinc++ -I{} -I{} {}",
@@ -558,7 +558,7 @@ fn build_libcxx() {
             ])
         },
     );
-    build_with_cmake(&Path::new(&dirname).join("libcxx"), |command, root_dir| {
+    build_with_cmake(Path::new(&dirname).join("libcxx"), |command, root_dir| {
         let cxx_flags = format!(
             "{} -nostdinc++ {} -I{}",
             if is_musl_target() { "-nostdinc" } else { "" },
