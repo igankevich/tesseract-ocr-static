@@ -123,9 +123,11 @@ fn main() {
         .clang_arg("-DNO_CONSOLE_IO")
         .clang_arg(format!("-I{}/include", root_dir.display()))
         .parse_callbacks(Box::new(IgnoreComments));
-    if let Some(path) = std::env::var_os("LIBCLANG_INCLUDE") {
-        builder.clang_arg(format!("-I{}", path.display()));
-    }
+    let builder = if let Some(path) = std::env::var_os("LIBCLANG_INCLUDE") {
+        builder.clang_arg(format!("-I{}", path.display()))
+    } else {
+        builder
+    };
     let bindings = builder.generate().expect("Unable to generate bindings");
     let out_path = PathBuf::from(std::env::var("OUT_DIR").unwrap());
     bindings
