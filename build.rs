@@ -122,6 +122,8 @@ fn main() {
         .header("wrapper.h")
         .clang_arg("-DNO_CONSOLE_IO")
         .clang_arg("-nostdinc++")
+        .clang_arg("-std=c++20")
+        .clang_args(["-x", "c++"])
         .clang_arg(format!("-I{}/include", root_dir.display()))
         .clang_arg(format!("-I{}/include/c++/v1", root_dir.display()))
         .parse_callbacks(Box::new(IgnoreComments))
