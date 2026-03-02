@@ -21,17 +21,6 @@ const LDFLAGS: &str = "-fPIC -fPIE";
 const MUSL_VERSION: &str = "1.2.5";
 const MUSL_SHA2: [u8; 32] =
     hex!("83ff394502d1c334b040ea9bc66ec48bba453585e25b05f4bde3741d8245d883");
-const ZLIB_VERSION: &str = "1.3.2";
-const ZLIB_SHA2: [u8; 32] =
-    hex!("bb329a0a2cd0274d05519d61c667c062e06990d72e125ee2dfa8de64f0119d16");
-const LIBPNG_VERSION: &str = "1.6.55";
-const LIBPNG_SHA2: [u8; 32] =
-    hex!("4b0abab6d219e95690ebe4db7fc9aa95f4006c83baaa022373c0c8442271283d");
-const LIBTIFF_VERSION: &str = "4.7.1";
-const LIBTIFF_SHA2: [u8; 32] =
-    hex!("f698d94f3103da8ca7438d84e0344e453fe0ba3b7486e04c5bf7a9a3fabe9b69");
-const LIBJPEG_TURBO_VERSION: &str = "3.1.3";
-const LIBWEBP_VERSION: &str = "1.6.0";
 const LEPTONICA_VERSION: &str = "1.87.0";
 const TESSERACT_VERSION: &str = "5.5.2";
 const LIBCXX_VERSION: &str = "22.1.0";
@@ -94,12 +83,12 @@ fn main() {
     if is_musl_target() {
         build_musl();
     }
-    build_zlib();
-    build_libpng();
-    build_libjpeg_turbo();
-    build_libwebp();
+    //build_zlib();
+    //build_libpng();
+    //build_libjpeg_turbo();
+    //build_libwebp();
     build_libcxx();
-    build_libtiff();
+    //build_libtiff();
     build_leptonica();
     build_tesseract();
     let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
@@ -107,12 +96,12 @@ fn main() {
     println!("cargo:rustc-link-search={}/lib", root_dir.display());
     println!("cargo:rustc-link-lib=static=tesseract");
     println!("cargo:rustc-link-lib=static=leptonica");
-    println!("cargo:rustc-link-lib=static=tiff");
-    println!("cargo:rustc-link-lib=static=webp");
-    println!("cargo:rustc-link-lib=static=sharpyuv");
-    println!("cargo:rustc-link-lib=static=jpeg");
-    println!("cargo:rustc-link-lib=static=png");
-    println!("cargo:rustc-link-lib=static=z");
+    //println!("cargo:rustc-link-lib=static=tiff");
+    //println!("cargo:rustc-link-lib=static=webp");
+    //println!("cargo:rustc-link-lib=static=sharpyuv");
+    //println!("cargo:rustc-link-lib=static=jpeg");
+    //println!("cargo:rustc-link-lib=static=png");
+    //println!("cargo:rustc-link-lib=static=z");
     println!("cargo:rustc-link-lib=static=c++");
     println!("cargo:rustc-link-lib=static=c++abi");
     //println!("cargo:rustc-link-lib=static=c");
@@ -289,130 +278,6 @@ fn build_musl() {
     make_with_cmake(&build_dir);
 }
 
-fn build_zlib() {
-    download_tar_gz(
-        &format!("https://zlib.net/zlib-{ZLIB_VERSION}.tar.gz"),
-        ZLIB_SHA2,
-        &format!("zlib-{ZLIB_VERSION}.tar.gz"),
-    );
-    build_with_cmake(format!("zlib-{ZLIB_VERSION}"), |command, _root_dir| {
-        command.args([
-            "-DZLIB_BUILD_TESTING=0",
-            "-DZLIB_BUILD_SHARED=0",
-            "-DZLIB_BUILD_STATIC=1",
-        ])
-    });
-    let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
-    let root_dir = out_dir.join("root");
-    fs::remove_dir_all(root_dir.join("lib").join("cmake").join("zlib")).unwrap();
-}
-
-fn build_libpng() {
-    download_tar_gz(
-        &format!(
-            "https://downloads.sourceforge.net/project/libpng/libpng16/{LIBPNG_VERSION}/libpng-{LIBPNG_VERSION}.tar.gz"
-        ),
-        LIBPNG_SHA2,
-        &format!("libpng-{LIBPNG_VERSION}.tar.gz"),
-    );
-    build_with_cmake(format!("libpng-{LIBPNG_VERSION}"), |command, root_dir| {
-        command
-            .arg(format!("-DZLIB_ROOT={}", root_dir.display()))
-            .args([
-                "-DPNG_SHARED=0",
-                "-DPNG_STATIC=1",
-                "-DPNG_TESTS=0",
-                "-DPNG_TOOLS=0",
-            ])
-    });
-    let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
-    let root_dir = out_dir.join("root");
-    fs::remove_dir_all(root_dir.join("lib").join("cmake").join("PNG")).unwrap();
-    fs::remove_dir_all(root_dir.join("lib").join("libpng")).unwrap();
-}
-
-fn build_libjpeg_turbo() {
-    let dirname = format!("libjpeg-turbo-{LIBJPEG_TURBO_VERSION}");
-    fetch_git(
-        "https://github.com/libjpeg-turbo/libjpeg-turbo",
-        LIBJPEG_TURBO_VERSION,
-        &dirname,
-    );
-    build_with_cmake(&dirname, |command, _root_dir| {
-        command.args([
-            "-DENABLE_STATIC=1",
-            "-DENABLE_SHARED=0",
-            "-DWITH_TOOLS=0",
-            "-DWITH_TESTS=0",
-            "-DWITH_TURBOJPEG=0",
-        ])
-    });
-    let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
-    let root_dir = out_dir.join("root");
-    fs::remove_dir_all(root_dir.join("lib").join("cmake").join("libjpeg-turbo")).unwrap();
-}
-
-fn build_libtiff() {
-    download_tar_gz(
-        &format!("https://download.osgeo.org/libtiff/tiff-{LIBTIFF_VERSION}.tar.gz"),
-        LIBTIFF_SHA2,
-        &format!("tiff-{LIBTIFF_VERSION}.tar.gz"),
-    );
-    build_with_cmake(format!("tiff-{LIBTIFF_VERSION}"), |command, root_dir| {
-        command
-            .arg(format!("-DZLIB_ROOT={}", root_dir.display()))
-            .args([
-                "-DBUILD_SHARED_LIBS=0",
-                "-Dtiff-static=1",
-                "-Dtiff-tools=0",
-                "-Dtiff-tests=0",
-                "-Dtiff-contrib=0",
-                "-Dtiff-docs=0",
-                "-Dtiff-install=1",
-                "-Dwebp=1",
-                "-Dzlib=1",
-                "-Djpeg=1",
-                "-Dzlib=1",
-                "-Dzstd=0",
-                "-Dlzma=0",
-            ])
-    });
-    let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
-    let root_dir = out_dir.join("root");
-    fs::remove_dir_all(root_dir.join("lib").join("cmake").join("tiff")).unwrap();
-}
-
-fn build_libwebp() {
-    let dirname = format!("libwebp-{LIBWEBP_VERSION}");
-    fetch_git(
-        "https://github.com/webmproject/libwebp",
-        &format!("v{LIBWEBP_VERSION}"),
-        &dirname,
-    );
-    build_with_cmake(&dirname, |command, _root_dir| {
-        command.args([
-            "-DBUILD_SHARED_LIBS=0",
-            "-DWEBP_LINK_STATIC=1",
-            "-DWEBP_BUILD_ANIM_UTILS=0",
-            "-DWEBP_BUILD_CWEBP=0",
-            "-DWEBP_BUILD_DWEBP=0",
-            "-DWEBP_BUILD_GIF2WEBP=0",
-            "-DWEBP_BUILD_IMG2WEBP=0",
-            "-DWEBP_BUILD_VWEBP=0",
-            "-DWEBP_BUILD_WEBPINFO=0",
-            "-DWEBP_BUILD_LIBWEBPMUX=1",
-            "-DWEBP_BUILD_WEBPMUX=0",
-            "-DWEBP_BUILD_EXTRAS=0",
-            "-DWEBP_BUILD_WEBP_JS=0",
-            "-DWEBP_BUILD_FUZZTEST=0",
-            "-DWEBP_USE_THREAD=0",
-        ])
-    });
-    let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
-    let root_dir = out_dir.join("root");
-    fs::remove_dir_all(root_dir.join("share").join("WebP").join("cmake")).unwrap();
-}
-
 fn build_leptonica() {
     let dirname = format!("leptonica-{LEPTONICA_VERSION}");
     fetch_git(
@@ -428,12 +293,12 @@ fn build_leptonica() {
             .args([
                 "-DBUILD_SHARED_LIBS=0",
                 "-DSTRICT_CONF=1",
-                "-DENABLE_ZLIB=1",
-                "-DENABLE_PNG=1",
+                "-DENABLE_ZLIB=0",
+                "-DENABLE_PNG=0",
                 "-DENABLE_GIF=0",
-                "-DENABLE_JPEG=1",
-                "-DENABLE_TIFF=1",
-                "-DENABLE_WEBP=1",
+                "-DENABLE_JPEG=0",
+                "-DENABLE_TIFF=0",
+                "-DENABLE_WEBP=0",
                 "-DENABLE_OPENJPEG=0",
             ])
     });
