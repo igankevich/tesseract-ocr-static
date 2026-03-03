@@ -8,12 +8,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
       - name: Install dependencies
-        run: sudo -n apt-get update -qq && sudo -n apt-get install -qqy nasm clang-20 lld-20 llvm-20
+        run: sudo -n apt-get update -qq && sudo -n apt-get install -qqy nasm clang-20
+          lld-20 llvm-20
       - name: Test
         env:
           RUST_BACKTRACE: 1
           TESSERACT_CC: clang-20
           TESSERACT_CXX: clang++-20
+          TESSERACT_AR: llvm-ar-20
+          TESSERACT_RANLIB: llvm-ranlib-20
           LIBCLANG_PATH: /usr/lib/llvm-20/lib
-          # LIBCLANG_INCLUDE: /usr/lib/llvm-20/lib/clang/20/include
         run: ./ci/test.sh
