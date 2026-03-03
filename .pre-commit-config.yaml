@@ -7,12 +7,6 @@ repos:
         language: system
         entry: cargo fmt --
         types: [rust]
-      - id: cargo-check
-        name: cargo check
-        language: system
-        entry: cargo check --all-targets --all-features --workspace --quiet
-        types: [rust]
-        pass_filenames: false
       - id: cargo-clippy
         name: cargo clippy
         language: system

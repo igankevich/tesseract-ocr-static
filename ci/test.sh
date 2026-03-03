@@ -4,8 +4,6 @@ main() {
     set -ex
     workdir="$(mktemp -d)"
     trap cleanup EXIT
-    cargo_build
-    cargo_clippy
     cargo_test
     cargo_test_musl
 }
@@ -17,22 +15,14 @@ download_tesseract_data() {
     export TESSDATA_PREFIX="$workdir"/data
 }
 
-cargo_build() {
-    cargo build --workspace --all-features
-}
-
-cargo_clippy() {
-    cargo clippy --workspace --quiet --all-features --all-targets -- --deny warnings
-}
-
 cargo_test() {
-    cargo test --workspace
+    cargo test --workspace --all-features
 }
 
 cargo_test_musl() {
     target=x86_64-unknown-linux-musl
     rustup target add "$target"
-    cargo test --target "$target" --workspace
+    cargo test --target "$target" --workspace --all-features
 }
 
 cleanup() {
