@@ -5,7 +5,6 @@ use std::path::Path;
 
 use crate::OcrEngineMode;
 use crate::PageSegmentationMode;
-use crate::c;
 
 /// Common tesseract methods.
 pub struct Tesseract {

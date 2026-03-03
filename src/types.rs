@@ -2,8 +2,6 @@ use core::ffi::CStr;
 use core::ptr::NonNull;
 use std::os::raw::c_char;
 
-use crate::c;
-
 macro_rules! define_enum {
     ($enum: ident
      $doc: literal

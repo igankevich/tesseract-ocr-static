@@ -7,7 +7,6 @@ use std::path::Path;
 use crate::InvalidVariable;
 use crate::Tesseract;
 use crate::WriteFailed;
-use crate::c;
 
 impl Tesseract {
     /// Set tesseract variable.

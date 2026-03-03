@@ -2,7 +2,6 @@ use core::mem::size_of_val;
 use core::ptr::NonNull;
 
 use crate::InvalidImage;
-use crate::c;
 
 fn rgb_to_rgba([r, g, b]: [u8; 3]) -> u32 {
     u32::from(r) | (u32::from(g) << 8) | (u32::from(b) << 16)

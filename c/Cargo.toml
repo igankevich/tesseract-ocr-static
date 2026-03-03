@@ -1,0 +1,10 @@
+[package]
+name = "tesseract-ocr-static-c"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[build-dependencies]
+bindgen = "0.72.1"
+fs = { package = "fs-err", version = "3.3.0" }
+jobserver = "0.1.34"

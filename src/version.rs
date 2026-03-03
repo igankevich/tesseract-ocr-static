@@ -1,7 +1,5 @@
 use core::ffi::CStr;
 
-use crate::c;
-
 /// Returns Tesseract library version.
 ///
 /// ```rust

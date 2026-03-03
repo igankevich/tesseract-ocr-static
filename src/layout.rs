@@ -15,7 +15,6 @@ use crate::Rectangle;
 use crate::Tesseract;
 use crate::TextlineOrder;
 use crate::WritingDirection;
-use crate::c;
 
 /// Layout analysis engine.
 ///

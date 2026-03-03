@@ -962,10 +962,8 @@ checksum = "b39cdef0fa800fc44525c84ccb54a029961a8215f9619753635a9c0d2538d46d"
 name = "rustyract"
 version = "0.1.0"
 dependencies = [
- "bindgen",
- "fs-err",
  "image",
- "jobserver",
+ "tesseract-ocr-static-c",
 ]
 
 [[package]]
@@ -1033,6 +1031,15 @@ dependencies = [
  "once_cell",
  "rustix",
  "windows-sys",
+]
+
+[[package]]
+name = "tesseract-ocr-static-c"
+version = "0.1.0"
+dependencies = [
+ "bindgen",
+ "fs-err",
+ "jobserver",
 ]
 
 [[package]]

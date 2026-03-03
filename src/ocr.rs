@@ -18,7 +18,6 @@ use crate::Rectangle;
 use crate::Tesseract;
 use crate::Text;
 use crate::Utf8Text;
-use crate::c;
 
 const ENGLISH: &CStr = c"eng";
 
