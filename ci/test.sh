@@ -4,6 +4,7 @@ main() {
     set -ex
     workdir="$(mktemp -d)"
     trap cleanup EXIT
+    download_tesseract_data
     cargo_test
     cargo_test_musl
 }
