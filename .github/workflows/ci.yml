@@ -12,8 +12,8 @@ jobs:
       - name: Test
         env:
           RUST_BACKTRACE: 1
-          CC: clang-20
-          CXX: clang++-20
+          TESSERACT_CC: clang-20
+          TESSERACT_CXX: clang++-20
           LIBCLANG_PATH: /usr/lib/llvm-20/lib
-          LIBCLANG_INCLUDE: /usr/lib/llvm-20/lib/clang/20/include
+          # LIBCLANG_INCLUDE: /usr/lib/llvm-20/lib/clang/20/include
         run: ./ci/test.sh

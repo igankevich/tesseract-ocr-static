@@ -7,6 +7,7 @@ main() {
     cargo_build
     cargo_clippy
     cargo_test
+    #cargo_test_musl
 }
 
 cargo_build() {
@@ -20,6 +21,10 @@ cargo_clippy() {
 cargo_test() {
     cargo test --workspace
 }
+
+#cargo_test_musl() {
+#    cargo test --target --workspace
+#}
 
 cleanup() {
     rm -rf "$workdir"
