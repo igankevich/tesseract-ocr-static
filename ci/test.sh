@@ -4,13 +4,13 @@ main() {
     set -ex
     workdir="$(mktemp -d)"
     trap cleanup EXIT
-    cargo_build_vv
+    cargo_build
     cargo_clippy
     cargo_test
 }
 
-cargo_build_vv() {
-    cargo build -vv --workspace --all-features
+cargo_build() {
+    cargo build --workspace --all-features
 }
 
 cargo_clippy() {

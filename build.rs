@@ -1,29 +1,73 @@
 #![allow(clippy::unwrap_used)]
 
+use std::env::var_os;
 use std::ffi::OsStr;
-use std::io::BufWriter;
-use std::io::Write;
+use std::ffi::OsString;
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
+use std::process::ExitStatus;
+use std::sync::LazyLock;
 use std::sync::OnceLock;
 
 use bindgen::callbacks::ParseCallbacks;
-use command_error::CommandExt;
-use flate2::read::GzDecoder;
-use hex_literal::hex;
-use sha2::Digest;
-use sha2::Sha256;
-
-const CFLAGS: &str = "-O3 -fPIC -fPIE -D_GNU_SOURCE -I/gnu/store/wmgiqgp0mzyihvy24b70rm9x2qrmnvxy-linux-libre-headers-6.12.17/include";
-const LDFLAGS: &str = "-fPIC -fPIE";
 
 const MUSL_VERSION: &str = "1.2.5";
-const MUSL_SHA2: [u8; 32] =
-    hex!("83ff394502d1c334b040ea9bc66ec48bba453585e25b05f4bde3741d8245d883");
+const LIBCXX_VERSION: &str = "22.1.0";
 const LEPTONICA_VERSION: &str = "1.87.0";
 const TESSERACT_VERSION: &str = "5.5.2";
-const LIBCXX_VERSION: &str = "22.1.0";
+
+static TESSERACT_CC: LazyLock<OsString> = LazyLock::new(|| tess_var("CC", "clang"));
+static TESSERACT_CXX: LazyLock<OsString> = LazyLock::new(|| tess_var("CXX", "clang++"));
+static TESSERACT_AR: LazyLock<OsString> = LazyLock::new(|| tess_var("AR", "llvm-ar"));
+static TESSERACT_RANLIB: LazyLock<OsString> = LazyLock::new(|| tess_var("RANLIB", "llvm-ranlib"));
+static TESSERACT_CFLAGS: LazyLock<OsString> = LazyLock::new(|| tess_var("CFLAGS", "-O3"));
+static TESSERACT_CXXFLAGS: LazyLock<OsString> = LazyLock::new(|| tess_var("CXXFLAGS", "-O3"));
+static TESSERACT_LDFLAGS: LazyLock<OsString> = LazyLock::new(|| tess_var("LDFLAGS", ""));
+
+const COMMON_CFLAGS: &str = "-fPIC -fPIE -D_GNU_SOURCE";
+const COMMON_LDFLAGS: &str = "-fPIC -fPIE";
+
+static CFLAGS: LazyLock<OsString> = LazyLock::new(|| {
+    let mut flags = OsString::new();
+    flags.push(&*TESSERACT_CFLAGS);
+    flags.push(" ");
+    flags.push(COMMON_CFLAGS);
+    if is_musl_target() {
+        flags.push(" --sysroot ");
+        flags.push(root_dir());
+        flags.push(" -isystem ");
+        flags.push(root_dir().join("include"));
+    } else {
+        flags.push(" -I");
+        flags.push(root_dir().join("include"));
+    }
+    flags
+});
+
+static CXXFLAGS: LazyLock<OsString> = LazyLock::new(|| {
+    let mut flags = OsString::new();
+    flags.push(&*TESSERACT_CXXFLAGS);
+    flags.push(" ");
+    flags.push(COMMON_CFLAGS);
+    flags.push(" -nostdinc++ -fno-exceptions -I");
+    flags.push(root_dir().join("include").join("c++").join("v1"));
+    flags
+});
+
+static LDFLAGS: LazyLock<OsString> = LazyLock::new(|| {
+    let mut flags = OsString::new();
+    flags.push(&*TESSERACT_LDFLAGS);
+    flags.push(" ");
+    flags.push(COMMON_LDFLAGS);
+    flags.push(" -Wl,-L");
+    flags.push(root_dir().join("lib"));
+    if is_musl_target() {
+        flags.push(" -nostdlib -Wl,-lc --sysroot ");
+        flags.push(root_dir());
+    }
+    flags
+});
 
 static JOB_CLIENT: OnceLock<Option<jobserver::Client>> = OnceLock::new();
 
@@ -38,57 +82,37 @@ fn root_dir() -> PathBuf {
     out_dir.join("root")
 }
 
-fn c_flags() -> String {
-    if is_musl_target() {
-        format!(
-            "{CFLAGS} --sysroot {} -isystem {}",
-            root_dir().display(),
-            root_dir().join("include").display()
-        )
-    } else {
-        format!("{CFLAGS} -I{}", root_dir().join("include").display())
-    }
-}
-
-fn cxx_flags() -> String {
-    format!(
-        "{} -nostdinc++ -fno-exceptions -I{}",
-        c_flags(),
-        root_dir().join("include").join("c++").join("v1").display()
-    )
-}
-
-fn ld_flags() -> String {
-    if is_musl_target() {
-        format!(
-            "{LDFLAGS} --sysroot {} -Wl,-L{} -nostdlib -Wl,-lc",
-            root_dir().display(),
-            root_dir().join("lib").display(),
-        )
-    } else {
-        format!("{LDFLAGS} -Wl,-L{}", root_dir().join("lib").display(),)
-    }
+fn tess_var(name: &str, default_value: impl AsRef<OsStr>) -> OsString {
+    let name = format!("TESSERACT_{name}");
+    var_os(name).unwrap_or_else(|| default_value.as_ref().to_owned())
 }
 
 fn is_musl_target() -> bool {
-    std::env::var_os("CARGO_CFG_TARGET_ENV").as_deref() == Some(OsStr::new("musl"))
+    var_os("CARGO_CFG_TARGET_ENV").as_deref() == Some(OsStr::new("musl"))
 }
 
 fn main() {
     println!("cargo::rerun-if-changed=build.rs");
     println!("cargo::rerun-if-changed=wrapper.h");
-    println!("cargo::rerun-if-env-changed=CC");
-    println!("cargo::rerun-if-env-changed=CXX");
     println!("cargo::rerun-if-env-changed=PATH");
+    println!("cargo::rerun-if-env-changed=TESSERACT_CC");
+    println!("cargo::rerun-if-env-changed=TESSERACT_CXX");
+    println!("cargo::rerun-if-env-changed=TESSERACT_AR");
+    println!("cargo::rerun-if-env-changed=TESSERACT_RANLIB");
+    println!("cargo::rerun-if-env-changed=TESSERACT_CFLAGS");
+    println!("cargo::rerun-if-env-changed=TESSERACT_CXXFLAGS");
+    println!("cargo::rerun-if-env-changed=TESSERACT_LDFLAGS");
+    eprintln!("CC = {}", (*TESSERACT_CC).display());
+    eprintln!("CXX = {}", (*TESSERACT_CXX).display());
+    eprintln!("AR = {}", (*TESSERACT_AR).display());
+    eprintln!("RANLIB = {}", (*TESSERACT_RANLIB).display());
+    eprintln!("CFLAGS = {}", (*CFLAGS).display());
+    eprintln!("CXXFLAGS = {}", (*CXXFLAGS).display());
+    eprintln!("LDFLAGS = {}", (*LDFLAGS).display());
     if is_musl_target() {
         build_musl();
     }
-    //build_zlib();
-    //build_libpng();
-    //build_libjpeg_turbo();
-    //build_libwebp();
     build_libcxx();
-    //build_libtiff();
     build_leptonica();
     build_tesseract();
     let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
@@ -96,28 +120,14 @@ fn main() {
     println!("cargo:rustc-link-search={}/lib", root_dir.display());
     println!("cargo:rustc-link-lib=static=tesseract");
     println!("cargo:rustc-link-lib=static=leptonica");
-    //println!("cargo:rustc-link-lib=static=tiff");
-    //println!("cargo:rustc-link-lib=static=webp");
-    //println!("cargo:rustc-link-lib=static=sharpyuv");
-    //println!("cargo:rustc-link-lib=static=jpeg");
-    //println!("cargo:rustc-link-lib=static=png");
-    //println!("cargo:rustc-link-lib=static=z");
     println!("cargo:rustc-link-lib=static=c++");
     println!("cargo:rustc-link-lib=static=c++abi");
-    //println!("cargo:rustc-link-lib=static=c");
-    //println!("cargo:rustc-link-arg=-Wl,-nostdlib");
-    //println!("cargo:rustc-link-arg=-Wl,-nolibc");
     let builder = bindgen::Builder::default()
         .header("wrapper.h")
         .clang_arg("-DNO_CONSOLE_IO")
         .clang_arg("-std=c23")
         .clang_arg(format!("-I{}/include", root_dir.display()))
         .parse_callbacks(Box::new(IgnoreComments));
-    let builder = if let Some(path) = std::env::var_os("LIBCLANG_INCLUDE") {
-        builder.clang_arg(format!("-I{}", path.display()))
-    } else {
-        builder
-    };
     let bindings = builder.generate().expect("Unable to generate bindings");
     let out_path = PathBuf::from(std::env::var("OUT_DIR").unwrap());
     bindings
@@ -132,22 +142,6 @@ impl ParseCallbacks for IgnoreComments {
     fn process_comment(&self, _comment: &str) -> Option<String> {
         Some(String::new())
     }
-}
-
-fn download_tar_gz(url: &str, sha2: [u8; 32], filename: &str) {
-    let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
-    let archive_file = out_dir.join(filename);
-    let mut file_writer =
-        HashingWriter::new(BufWriter::new(fs::File::create(&archive_file).unwrap()));
-    reqwest::blocking::get(url)
-        .unwrap()
-        .copy_to(&mut file_writer)
-        .unwrap();
-    let (hash, mut writer) = file_writer.into_inner();
-    writer.flush().unwrap();
-    assert_eq!(sha2, hash);
-    let mut archive = tar::Archive::new(GzDecoder::new(fs::File::open(&archive_file).unwrap()));
-    archive.unpack(&out_dir).unwrap();
 }
 
 fn fetch_git(url: &str, tag: &str, dirname: &str) {
@@ -169,7 +163,7 @@ fn fetch_git(url: &str, tag: &str, dirname: &str) {
 fn hermetic_command(command: impl AsRef<OsStr>) -> Command {
     let mut command = Command::new(command);
     command.env_clear();
-    if let Some(path) = std::env::var_os("PATH") {
+    if let Some(path) = var_os("PATH") {
         command.env("PATH", path);
     }
     command
@@ -199,21 +193,11 @@ fn configure_with_cmake(
             .arg("-DCMAKE_BUILD_TYPE=Release")
             .arg("-DCMAKE_INSTALL_LIBDIR=lib")
             .arg(&archive_dir)
-            .env(
-                "CC",
-                std::env::var_os("CC")
-                    .as_deref()
-                    .unwrap_or(OsStr::new("clang")),
-            )
-            .env(
-                "CXX",
-                std::env::var_os("CXX")
-                    .as_deref()
-                    .unwrap_or(OsStr::new("clang++")),
-            )
-            .env("CFLAGS", c_flags())
-            .env("CXXFLAGS", cxx_flags())
-            .env("LDFLAGS", ld_flags())
+            .env("CC", &*TESSERACT_CC)
+            .env("CXX", &*TESSERACT_CXX)
+            .env("CFLAGS", &*CFLAGS)
+            .env("CXXFLAGS", &*CXXFLAGS)
+            .env("LDFLAGS", &*LDFLAGS)
             .env("PKG_CONFIG_PATH", root_dir.join("lib").join("pkgconfig"))
             .current_dir(&build_dir),
         &root_dir,
@@ -251,10 +235,10 @@ fn build_with_cmake(
 }
 
 fn build_musl() {
-    download_tar_gz(
-        &format!("https://git.musl-libc.org/cgit/musl/snapshot/musl-{MUSL_VERSION}.tar.gz"),
-        MUSL_SHA2,
-        &format!("musl-{MUSL_VERSION}.tar.gz"),
+    fetch_git(
+        "https://git.musl-libc.org/git/musl",
+        &format!("v{MUSL_VERSION}"),
+        &format!("musl-{MUSL_VERSION}"),
     );
     let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
     let archive_dir = out_dir.join(format!("musl-{MUSL_VERSION}"));
@@ -266,10 +250,10 @@ fn build_musl() {
         .current_dir(&build_dir)
         .arg(format!("--prefix={}", root_dir.display()))
         .arg("--enable-wrapper=clang")
-        .arg("--disable-shared=clang")
-        .env("AR", "llvm-ar")
-        .env("RANLIB", "llvm-ranlib")
-        .env("CC", "clang")
+        .arg("--disable-shared")
+        .env("AR", &*TESSERACT_AR)
+        .env("RANLIB", &*TESSERACT_RANLIB)
+        .env("CC", &*TESSERACT_CC)
         .env("CPPFLAGS", "-nostdinc")
         .env("CFLAGS", "-O3 -fPIC -fPIE")
         .env("LDFLAGS", "-fPIC -fPIE")
@@ -285,22 +269,19 @@ fn build_leptonica() {
         LEPTONICA_VERSION,
         &dirname,
     );
-    build_with_cmake(&dirname, |command, root_dir| {
-        let more_c_flags = format!("{} -DNO_CONSOLE_IO", c_flags());
-        command
-            .arg(format!("-DZLIB_ROOT={}", root_dir.display()))
-            .env("CFLAGS", more_c_flags)
-            .args([
-                "-DBUILD_SHARED_LIBS=0",
-                "-DSTRICT_CONF=1",
-                "-DENABLE_ZLIB=0",
-                "-DENABLE_PNG=0",
-                "-DENABLE_GIF=0",
-                "-DENABLE_JPEG=0",
-                "-DENABLE_TIFF=0",
-                "-DENABLE_WEBP=0",
-                "-DENABLE_OPENJPEG=0",
-            ])
+    build_with_cmake(&dirname, |command, _root_dir| {
+        let more_c_flags = format!("{} -DNO_CONSOLE_IO", (*CFLAGS).display());
+        command.env("CFLAGS", more_c_flags).args([
+            "-DBUILD_SHARED_LIBS=0",
+            "-DSTRICT_CONF=1",
+            "-DENABLE_ZLIB=0",
+            "-DENABLE_PNG=0",
+            "-DENABLE_GIF=0",
+            "-DENABLE_JPEG=0",
+            "-DENABLE_TIFF=0",
+            "-DENABLE_WEBP=0",
+            "-DENABLE_OPENJPEG=0",
+        ])
     });
 }
 
@@ -331,8 +312,10 @@ fn build_tesseract() {
         ],
     );
     build_with_cmake(&dirname, |command, _root_dir| {
-        let more_cxx_flags = format!("{} -DNO_CONSOLE_IO", cxx_flags());
-        command.env("CXXFLAGS", more_cxx_flags).args([
+        let mut cxx_flags = OsString::new();
+        cxx_flags.push(&*CXXFLAGS);
+        cxx_flags.push(" -DNO_CONSOLE_IO");
+        command.env("CXXFLAGS", cxx_flags).args([
             "-DBUILD_SHARED_LIBS=0",
             "-DGRAPHICS_DISABLED=1",
             "-DDISABLED_LEGACY_ENGINE=0",
@@ -369,7 +352,7 @@ fn build_libcxx() {
         let cxx_flags = format!(
             "{} -nostdinc++ {} -I{}",
             if is_musl_target() { "-nostdinc" } else { "" },
-            cxx_flags(),
+            (*CXXFLAGS).display(),
             root_dir.join("include").join("c++").join("v1").display(),
         );
         eprintln!("Override libcxx CXXFLAGS = {cxx_flags:?}");
@@ -408,7 +391,7 @@ fn build_libcxx() {
                     .join("libcxx")
                     .join("include")
                     .display(),
-                cxx_flags(),
+                (*CXXFLAGS).display(),
             );
             eprintln!("Override CXXFLAGS = {cxx_flags:?}");
             command.env("CXXFLAGS", &cxx_flags).args([
@@ -427,7 +410,7 @@ fn build_libcxx() {
         let cxx_flags = format!(
             "{} -nostdinc++ {} -I{}",
             if is_musl_target() { "-nostdinc" } else { "" },
-            cxx_flags(),
+            (*CXXFLAGS).display(),
             root_dir.join("include").join("c++").join("v1").display(),
         );
         eprintln!("Override libcxx CXXFLAGS = {cxx_flags:?}");
@@ -460,30 +443,37 @@ fn substitute(path: impl AsRef<Path>, rules: &[(impl AsRef<str>, impl AsRef<str>
     fs::write(path.as_ref(), text.as_bytes()).unwrap();
 }
 
-struct HashingWriter<W: Write> {
-    hasher: Sha256,
-    writer: W,
+trait CommandExt {
+    fn status_checked(&mut self) -> Result<ExitStatus, std::io::Error>;
 }
 
-impl<W: Write> HashingWriter<W> {
-    fn new(writer: W) -> Self {
-        let hasher = Sha256::new();
-        Self { writer, hasher }
-    }
-
-    fn into_inner(self) -> ([u8; 32], W) {
-        let hash = self.hasher.finalize().into();
-        (hash, self.writer)
+impl CommandExt for Command {
+    fn status_checked(&mut self) -> Result<ExitStatus, std::io::Error> {
+        let status = self.status().map_err(|e| add_context(e, self))?;
+        if !status.success() {
+            let message = match status.code() {
+                Some(code) => format!("Exited with status code {code}"),
+                None => "Terminated by signal".to_string(),
+            };
+            return Err(add_context(std::io::Error::other(message), self));
+        }
+        Ok(status)
     }
 }
 
-impl<W: Write> Write for HashingWriter<W> {
-    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        self.hasher.update(buf);
-        self.writer.write(buf)
-    }
-
-    fn flush(&mut self) -> std::io::Result<()> {
-        self.writer.flush()
-    }
+fn add_context(error: std::io::Error, command: &Command) -> std::io::Error {
+    let args = {
+        let mut args = Vec::new();
+        args.push(command.get_program());
+        args.extend(command.get_args());
+        args
+    };
+    let env: Vec<_> = command.get_envs().collect();
+    let cwd = command
+        .get_current_dir()
+        .map(|path| path.to_path_buf())
+        .unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
+    std::io::Error::other(format!(
+        "Failed to execute {args:?}: {error}; env {env:?}, dir {cwd:?}"
+    ))
 }

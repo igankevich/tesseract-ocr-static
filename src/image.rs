@@ -36,8 +36,6 @@ impl Image {
         let ptr = NonNull::new(ptr).ok_or(InvalidImage)?;
         let mut image = Self { ptr };
         let pixels = image.as_pixels_mut();
-        eprintln!("Our: width = {width}, height = {height}");
-        eprintln!("Pixels: {} {}", pixels.len(), width * height);
         for (pixel, rgb) in pixels.iter_mut().zip(rgb.chunks_exact(3)) {
             *pixel = rgb_to_rgba([rgb[0], rgb[1], rgb[2]]);
         }
@@ -98,7 +96,8 @@ mod tests {
 
     #[test]
     fn ocr_test_image() {
-        let rgb = image::ImageReader::open(concat!(env!("CARGO_MANIFEST_DIR"), "/text.png"))
+        let text = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/data/text.txt"));
+        let rgb = image::ImageReader::open(concat!(env!("CARGO_MANIFEST_DIR"), "/data/text.png"))
             .unwrap()
             .decode()
             .unwrap()
@@ -106,6 +105,6 @@ mod tests {
         let image = Image::from_rgb(rgb.width(), rgb.height(), rgb.as_raw()).unwrap();
         let mut recognizer = TextRecognizer::new().unwrap();
         let results = recognizer.recognize_text(&image).unwrap();
-        eprintln!("{}", results.get_utf8_text().as_str());
+        assert_eq!(text, results.get_utf8_text().as_str());
     }
 }
