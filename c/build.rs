@@ -34,8 +34,8 @@ static CFLAGS: LazyLock<OsString> = LazyLock::new(|| {
     flags.push(" ");
     flags.push(COMMON_CFLAGS);
     if is_musl_target() {
-        flags.push(" --sysroot ");
-        flags.push(root_dir());
+        //flags.push(" --sysroot ");
+        //flags.push(root_dir());
         flags.push(" -isystem ");
         flags.push(root_dir().join("include"));
     } else {
@@ -52,6 +52,15 @@ static CXXFLAGS: LazyLock<OsString> = LazyLock::new(|| {
     flags.push(COMMON_CFLAGS);
     flags.push(" -nostdinc++ -fno-exceptions -I");
     flags.push(root_dir().join("include").join("c++").join("v1"));
+    if is_musl_target() {
+        //flags.push(" --sysroot ");
+        //flags.push(root_dir());
+        flags.push(" -isystem ");
+        flags.push(root_dir().join("include"));
+    } else {
+        flags.push(" -I");
+        flags.push(root_dir().join("include"));
+    }
     flags
 });
 
@@ -63,8 +72,9 @@ static LDFLAGS: LazyLock<OsString> = LazyLock::new(|| {
     flags.push(" -Wl,-L");
     flags.push(root_dir().join("lib"));
     if is_musl_target() {
-        flags.push(" -nostdlib -Wl,-lc --sysroot ");
-        flags.push(root_dir());
+        flags.push(" -nostdlib -Wl,-lc");
+        //flags.push(" -nostdlib -Wl,-lc --sysroot ");
+        //flags.push(root_dir());
     }
     flags
 });
@@ -348,18 +358,27 @@ fn build_libcxx() {
             ])
         },
     );
-    configure_with_cmake(Path::new(&dirname).join("libcxx"), |command, root_dir| {
-        let cxx_flags = format!(
-            "{} -nostdinc++ {} -I{}",
-            if is_musl_target() { "-nostdinc" } else { "" },
-            (*CXXFLAGS).display(),
-            root_dir.join("include").join("c++").join("v1").display(),
-        );
-        eprintln!("Override libcxx CXXFLAGS = {cxx_flags:?}");
+    let libcxx_cxx_flags = {
+        let mut cxx_flags = OsString::new();
+        //if is_musl_target() {
+        //    cxx_flags.push("-nostdinc ");
+        //}
+        cxx_flags.push("-nostdinc++ -O3 -fPIC -fPIE -I");
+        cxx_flags.push(root_dir().join("include").join("c++").join("v1"));
+        if is_musl_target() {
+            //cxx_flags.push(" --sysroot ");
+            //cxx_flags.push(root_dir());
+            cxx_flags.push(" -isystem ");
+            cxx_flags.push(root_dir().join("include"));
+        }
+        cxx_flags
+    };
+    configure_with_cmake(Path::new(&dirname).join("libcxx"), |command, _root_dir| {
+        eprintln!("Override libcxx CXXFLAGS = {libcxx_cxx_flags:?}");
         if is_musl_target() {
             command.arg("-DLIBCXX_HAS_MUSL_LIBC=1");
         }
-        command.env("CXXFLAGS", &cxx_flags).args([
+        command.env("CXXFLAGS", &libcxx_cxx_flags).args([
             "-DLIBCXX_ENABLE_EXCEPTIONS=0",
             "-DLIBCXX_ENABLE_SHARED=0",
             "-DLIBCXX_ENABLE_STATIC=1",
@@ -375,24 +394,28 @@ fn build_libcxx() {
     build_with_cmake(
         Path::new(&dirname).join("libcxxabi"),
         |command, _root_dir| {
-            let cxx_flags = format!(
-                "{} -nostdinc++ -I{} -I{} {}",
-                if is_musl_target() { "-nostdinc" } else { "" },
+            let mut cxx_flags = OsString::new();
+            if is_musl_target() {
+                cxx_flags.push("-nostdinc ");
+            }
+            cxx_flags.push("-nostdinc++ -O3 -fPIC -fPIE -I");
+            cxx_flags.push(
                 out_dir
                     .join(&dirname)
                     .join("libcxx")
                     .join("__build__")
                     .join("include")
                     .join("c++")
-                    .join("v1")
-                    .display(),
-                out_dir
-                    .join(&dirname)
-                    .join("libcxx")
-                    .join("include")
-                    .display(),
-                (*CXXFLAGS).display(),
+                    .join("v1"),
             );
+            cxx_flags.push(" -I");
+            cxx_flags.push(out_dir.join(&dirname).join("libcxx").join("include"));
+            if is_musl_target() {
+                //cxx_flags.push(" --sysroot ");
+                //cxx_flags.push(root_dir());
+                cxx_flags.push(" -isystem ");
+                cxx_flags.push(root_dir().join("include"));
+            }
             eprintln!("Override CXXFLAGS = {cxx_flags:?}");
             command.env("CXXFLAGS", &cxx_flags).args([
                 "-DLIBCXXABI_ENABLE_EXCEPTIONS=0",
@@ -406,20 +429,14 @@ fn build_libcxx() {
             ])
         },
     );
-    build_with_cmake(Path::new(&dirname).join("libcxx"), |command, root_dir| {
-        let cxx_flags = format!(
-            "{} -nostdinc++ {} -I{}",
-            if is_musl_target() { "-nostdinc" } else { "" },
-            (*CXXFLAGS).display(),
-            root_dir.join("include").join("c++").join("v1").display(),
-        );
-        eprintln!("Override libcxx CXXFLAGS = {cxx_flags:?}");
+    build_with_cmake(Path::new(&dirname).join("libcxx"), |command, _root_dir| {
+        eprintln!("Override libcxx CXXFLAGS = {libcxx_cxx_flags:?}");
         if is_musl_target() {
             command.arg("-DLIBCXX_HAS_MUSL_LIBC=1");
         }
         command
-            .env("CXXFLAGS", &cxx_flags)
-            .arg(format!("-DCMAKE_CXX_FLAGS_RELEASE={cxx_flags}"))
+            .env("CXXFLAGS", &libcxx_cxx_flags)
+            //.arg(format!("-DCMAKE_CXX_FLAGS_RELEASE={libcxx_cxx_flags}"))
             .args([
                 "-DLIBCXX_ENABLE_EXCEPTIONS=0",
                 "-DLIBCXX_ENABLE_SHARED=0",
@@ -433,6 +450,7 @@ fn build_libcxx() {
                 "-DPython3_EXECUTABLE=python3",
             ])
     });
+    let _ = fs::remove_file(root_dir().join("lib").join("libunwind.a"));
 }
 
 fn substitute(path: impl AsRef<Path>, rules: &[(impl AsRef<str>, impl AsRef<str>)]) {
