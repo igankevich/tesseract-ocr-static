@@ -5,8 +5,8 @@ use std::io::BufWriter;
 use std::io::Write;
 
 use anyhow::anyhow;
-use rustyract::TextRecognizer;
 use tempfile::TempDir;
+use tesseract_ocr_static::TextRecognizer;
 
 struct EscapeMarkdown<'a>(&'a str);
 

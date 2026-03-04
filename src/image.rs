@@ -1,4 +1,3 @@
-use core::mem::size_of_val;
 use core::ptr::NonNull;
 
 use crate::InvalidImage;
@@ -7,23 +6,17 @@ fn rgb_to_rgba([r, g, b]: [u8; 3]) -> u32 {
     u32::from(r) | (u32::from(g) << 8) | (u32::from(b) << 16)
 }
 
+fn rgba_to_rgba([r, g, b, a]: [u8; 4]) -> u32 {
+    u32::from(r) | (u32::from(g) << 8) | (u32::from(b) << 16) | (u32::from(a) << 24)
+}
+
+/// Tesseract-specific image.
 pub struct Image {
     pub(crate) ptr: NonNull<c::PIX>,
 }
 
 impl Image {
-    pub fn new(width: u32, height: u32, bits_per_pixel: u32) -> Result<Self, InvalidImage> {
-        let ptr = unsafe { c::pixCreate(width as i32, height as i32, bits_per_pixel as i32) };
-        let ptr = NonNull::new(ptr).ok_or(InvalidImage)?;
-        Ok(Self { ptr })
-    }
-
-    pub fn read_mem(bytes: &[u8]) -> Result<Self, InvalidImage> {
-        let ptr = unsafe { c::pixReadMem(bytes.as_ptr(), size_of_val(bytes)) };
-        let ptr = NonNull::new(ptr).ok_or(InvalidImage)?;
-        Ok(Self { ptr })
-    }
-
+    /// Create an image from raw RGB bytes.
     pub fn from_rgb(width: u32, height: u32, rgb: &[u8]) -> Result<Self, InvalidImage> {
         assert!(
             width <= i32::MAX as u32
@@ -31,9 +24,7 @@ impl Image {
                 && u64::from(width) * u64::from(height) * 3 == rgb.len() as u64
         );
         let bits_per_pixel = 32;
-        let ptr = unsafe { c::pixCreate(width as i32, height as i32, bits_per_pixel) };
-        let ptr = NonNull::new(ptr).ok_or(InvalidImage)?;
-        let mut image = Self { ptr };
+        let mut image = Self::new(width, height, bits_per_pixel)?;
         let pixels = image.as_pixels_mut();
         for (pixel, rgb) in pixels.iter_mut().zip(rgb.chunks_exact(3)) {
             *pixel = rgb_to_rgba([rgb[0], rgb[1], rgb[2]]);
@@ -41,12 +32,29 @@ impl Image {
         Ok(image)
     }
 
-    pub fn as_pixels(&self) -> &[u32] {
-        let (ptr, len) = self.get_raw_pixels();
-        unsafe { core::slice::from_raw_parts(ptr.cast(), len) }
+    /// Create an image from raw RGBA bytes.
+    pub fn from_rgba(width: u32, height: u32, rgba: &[u8]) -> Result<Self, InvalidImage> {
+        assert!(
+            width <= i32::MAX as u32
+                && height <= i32::MAX as u32
+                && u64::from(width) * u64::from(height) * 4 == rgba.len() as u64
+        );
+        let bits_per_pixel = 32;
+        let mut image = Self::new(width, height, bits_per_pixel)?;
+        let pixels = image.as_pixels_mut();
+        for (pixel, rgba) in pixels.iter_mut().zip(rgba.chunks_exact(4)) {
+            *pixel = rgba_to_rgba([rgba[0], rgba[1], rgba[2], rgba[3]]);
+        }
+        Ok(image)
     }
 
-    pub fn as_pixels_mut(&mut self) -> &mut [u32] {
+    fn new(width: u32, height: u32, bits_per_pixel: u32) -> Result<Self, InvalidImage> {
+        let ptr = unsafe { c::pixCreate(width as i32, height as i32, bits_per_pixel as i32) };
+        let ptr = NonNull::new(ptr).ok_or(InvalidImage)?;
+        Ok(Self { ptr })
+    }
+
+    fn as_pixels_mut(&mut self) -> &mut [u32] {
         let (ptr, len) = self.get_raw_pixels();
         unsafe { core::slice::from_raw_parts_mut(ptr.cast(), len) }
     }
@@ -63,14 +71,16 @@ impl Image {
         (data_ptr, len)
     }
 
-    pub fn dimensions(&self) -> (u32, u32, u32) {
+    /// Returns width and height of the image.
+    pub fn dimensions(&self) -> (u32, u32) {
         let mut width = 0;
         let mut height = 0;
         let mut depth = 0;
         let ret =
             unsafe { c::pixGetDimensions(self.ptr.as_ptr(), &mut width, &mut height, &mut depth) };
         assert!(ret == 0);
-        (width as u32, height as u32, depth as u32)
+        let _ = depth;
+        (width as u32, height as u32)
     }
 }
 

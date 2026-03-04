@@ -8,3 +8,7 @@ license.workspace = true
 bindgen = "0.72.1"
 fs = { package = "fs-err", version = "3.3.0" }
 jobserver = "0.1.34"
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]

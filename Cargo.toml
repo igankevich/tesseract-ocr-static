@@ -1,5 +1,5 @@
 [package]
-name = "rustyract"
+name = "tesseract-ocr-static"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -21,3 +21,7 @@ license = "Apache-2.0"
 
 [lints.clippy]
 unwrap_used = "deny"
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]

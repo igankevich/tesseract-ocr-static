@@ -1,3 +1,6 @@
+#![doc = include_str!("../README.md")]
+
+#[cfg_attr(any(doc, docsrs), path = "c_stub.rs")]
 mod c;
 
 pub use self::c::{
@@ -55,5 +58,5 @@ pub use self::c::{
     TessWritingDirection_WRITING_DIRECTION_LEFT_TO_RIGHT,
     TessWritingDirection_WRITING_DIRECTION_RIGHT_TO_LEFT,
     TessWritingDirection_WRITING_DIRECTION_TOP_TO_BOTTOM, getLeptonicaVersion, pixClone, pixCreate,
-    pixDestroy, pixGetData, pixGetDimensions, pixGetHeight, pixGetWidth, pixGetWpl, pixReadMem,
+    pixDestroy, pixGetData, pixGetDimensions, pixGetHeight, pixGetWidth, pixGetWpl,
 };

@@ -959,24 +959,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b39cdef0fa800fc44525c84ccb54a029961a8215f9619753635a9c0d2538d46d"
 
 [[package]]
-name = "rustyract"
-version = "0.1.0"
-dependencies = [
- "image",
- "tesseract-ocr-static-c",
-]
-
-[[package]]
-name = "rustyract-cli"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "fs-err",
- "rustyract",
- "tempfile",
-]
-
-[[package]]
 name = "shlex"
 version = "1.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1034,12 +1016,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "tesseract-ocr-static"
+version = "0.1.0"
+dependencies = [
+ "image",
+ "tesseract-ocr-static-c",
+]
+
+[[package]]
 name = "tesseract-ocr-static-c"
 version = "0.1.0"
 dependencies = [
  "bindgen",
  "fs-err",
  "jobserver",
+]
+
+[[package]]
+name = "tesseract-ocr-static-cli"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "fs-err",
+ "tempfile",
+ "tesseract-ocr-static",
 ]
 
 [[package]]

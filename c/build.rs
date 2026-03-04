@@ -33,9 +33,7 @@ static CFLAGS: LazyLock<OsString> = LazyLock::new(|| {
     flags.push(&*TESSERACT_CFLAGS);
     flags.push(" ");
     flags.push(COMMON_CFLAGS);
-    if is_musl_target() {
-        //flags.push(" --sysroot ");
-        //flags.push(root_dir());
+    if is_static_build() {
         flags.push(" -isystem ");
         flags.push(root_dir().join("include"));
     } else {
@@ -52,9 +50,7 @@ static CXXFLAGS: LazyLock<OsString> = LazyLock::new(|| {
     flags.push(COMMON_CFLAGS);
     flags.push(" -nostdinc++ -fno-exceptions -I");
     flags.push(root_dir().join("include").join("c++").join("v1"));
-    if is_musl_target() {
-        //flags.push(" --sysroot ");
-        //flags.push(root_dir());
+    if is_static_build() {
         flags.push(" -isystem ");
         flags.push(root_dir().join("include"));
     } else {
@@ -71,10 +67,8 @@ static LDFLAGS: LazyLock<OsString> = LazyLock::new(|| {
     flags.push(COMMON_LDFLAGS);
     flags.push(" -Wl,-L");
     flags.push(root_dir().join("lib"));
-    if is_musl_target() {
+    if is_static_build() {
         flags.push(" -nostdlib -Wl,-lc");
-        //flags.push(" -nostdlib -Wl,-lc --sysroot ");
-        //flags.push(root_dir());
     }
     flags
 });
@@ -97,11 +91,29 @@ fn tess_var(name: &str, default_value: impl AsRef<OsStr>) -> OsString {
     var_os(name).unwrap_or_else(|| default_value.as_ref().to_owned())
 }
 
-fn is_musl_target() -> bool {
+fn is_musl() -> bool {
     var_os("CARGO_CFG_TARGET_ENV").as_deref() == Some(OsStr::new("musl"))
 }
 
+fn is_crt_static() -> bool {
+    var_os("CARGO_CFG_TARGET_FEATURE")
+        .map(|value| {
+            value
+                .as_encoded_bytes()
+                .split(|byte| *byte == b',')
+                .any(|slice| slice == b"crt-static")
+        })
+        .unwrap_or(false)
+}
+
+fn is_static_build() -> bool {
+    is_musl() || is_crt_static()
+}
+
 fn main() {
+    if cfg!(docsrs) {
+        return;
+    }
     println!("cargo::rerun-if-changed=build.rs");
     println!("cargo::rerun-if-changed=wrapper.h");
     println!("cargo::rerun-if-env-changed=PATH");
@@ -119,7 +131,7 @@ fn main() {
     eprintln!("CFLAGS = {}", (*CFLAGS).display());
     eprintln!("CXXFLAGS = {}", (*CXXFLAGS).display());
     eprintln!("LDFLAGS = {}", (*LDFLAGS).display());
-    if is_musl_target() {
+    if is_static_build() {
         build_musl();
     }
     build_libcxx();
@@ -137,7 +149,9 @@ fn main() {
         .clang_arg("-DNO_CONSOLE_IO")
         .clang_arg("-std=c23")
         .clang_arg(format!("-I{}/include", root_dir.display()))
-        .parse_callbacks(Box::new(IgnoreComments));
+        .parse_callbacks(Box::new(IgnoreComments))
+        .allowlist_file("^.*/leptonica/.*$")
+        .allowlist_file("^.*/tesseract/.*$");
     let bindings = builder.generate().expect("Unable to generate bindings");
     let out_path = PathBuf::from(std::env::var("OUT_DIR").unwrap());
     bindings
@@ -167,7 +181,7 @@ fn fetch_git(url: &str, tag: &str, dirname: &str) {
         .arg(url)
         .arg(&dir)
         .status_checked()
-        .unwrap();
+        .unwrap_display();
 }
 
 fn hermetic_command(command: impl AsRef<OsStr>) -> Command {
@@ -196,7 +210,7 @@ fn configure_with_cmake(
     let build_dir = archive_dir.join("__build__");
     let root_dir = out_dir.join("root");
     let _ = fs::remove_dir_all(&build_dir);
-    fs::create_dir_all(&build_dir).unwrap();
+    fs::create_dir_all(&build_dir).unwrap_display();
     configure(
         hermetic_command("cmake")
             .arg(format!("-DCMAKE_INSTALL_PREFIX={}", root_dir.display()))
@@ -213,7 +227,7 @@ fn configure_with_cmake(
         &root_dir,
     )
     .status_checked()
-    .unwrap();
+    .unwrap_display();
 }
 
 fn make_with_cmake(build_dir: impl AsRef<Path>) {
@@ -223,15 +237,15 @@ fn make_with_cmake(build_dir: impl AsRef<Path>) {
         .arg("VERBOSE=1")
         .current_dir(&build_dir)
         .status_checked()
-        .unwrap();
+        .unwrap_display();
     hermetic_command("make")
         .arg("install")
         .current_dir(&build_dir)
         .status_checked()
-        .unwrap();
+        .unwrap_display();
     let _ = fs::remove_dir_all(root_dir.join("share").join("man"));
     let _ = fs::remove_dir_all(root_dir.join("share").join("doc"));
-    fs::remove_dir_all(&build_dir).unwrap();
+    fs::remove_dir_all(&build_dir).unwrap_display();
 }
 
 fn build_with_cmake(
@@ -255,7 +269,7 @@ fn build_musl() {
     let build_dir = archive_dir.join("__build__");
     let root_dir = out_dir.join("root");
     let _ = fs::remove_dir_all(&build_dir);
-    fs::create_dir_all(&build_dir).unwrap();
+    fs::create_dir_all(&build_dir).unwrap_display();
     hermetic_command(archive_dir.join("configure"))
         .current_dir(&build_dir)
         .arg(format!("--prefix={}", root_dir.display()))
@@ -268,7 +282,7 @@ fn build_musl() {
         .env("CFLAGS", "-O3 -fPIC -fPIE")
         .env("LDFLAGS", "-fPIC -fPIE")
         .status_checked()
-        .unwrap();
+        .unwrap_display();
     make_with_cmake(&build_dir);
 }
 
@@ -308,7 +322,7 @@ fn build_tesseract() {
         out_dir.join(&dirname).join("src").join("tesseract.cpp"),
         "int main() { return 0; }",
     )
-    .unwrap();
+    .unwrap_display();
     // Patch UB.
     substitute(
         out_dir
@@ -360,14 +374,13 @@ fn build_libcxx() {
     );
     let libcxx_cxx_flags = {
         let mut cxx_flags = OsString::new();
-        //if is_musl_target() {
+        cxx_flags.push(&*TESSERACT_CXXFLAGS);
+        //if is_static_build() {
         //    cxx_flags.push("-nostdinc ");
         //}
-        cxx_flags.push("-nostdinc++ -O3 -fPIC -fPIE -I");
+        cxx_flags.push(" -nostdinc++ -O3 -fPIC -fPIE -I");
         cxx_flags.push(root_dir().join("include").join("c++").join("v1"));
-        if is_musl_target() {
-            //cxx_flags.push(" --sysroot ");
-            //cxx_flags.push(root_dir());
+        if is_static_build() {
             cxx_flags.push(" -isystem ");
             cxx_flags.push(root_dir().join("include"));
         }
@@ -375,7 +388,7 @@ fn build_libcxx() {
     };
     configure_with_cmake(Path::new(&dirname).join("libcxx"), |command, _root_dir| {
         eprintln!("Override libcxx CXXFLAGS = {libcxx_cxx_flags:?}");
-        if is_musl_target() {
+        if is_static_build() {
             command.arg("-DLIBCXX_HAS_MUSL_LIBC=1");
         }
         command.env("CXXFLAGS", &libcxx_cxx_flags).args([
@@ -395,10 +408,11 @@ fn build_libcxx() {
         Path::new(&dirname).join("libcxxabi"),
         |command, _root_dir| {
             let mut cxx_flags = OsString::new();
-            if is_musl_target() {
-                cxx_flags.push("-nostdinc ");
-            }
-            cxx_flags.push("-nostdinc++ -O3 -fPIC -fPIE -I");
+            cxx_flags.push(&*TESSERACT_CXXFLAGS);
+            //if is_static_build() {
+            //    cxx_flags.push("-nostdinc ");
+            //}
+            cxx_flags.push(" -nostdinc++ -O3 -fPIC -fPIE -I");
             cxx_flags.push(
                 out_dir
                     .join(&dirname)
@@ -410,9 +424,7 @@ fn build_libcxx() {
             );
             cxx_flags.push(" -I");
             cxx_flags.push(out_dir.join(&dirname).join("libcxx").join("include"));
-            if is_musl_target() {
-                //cxx_flags.push(" --sysroot ");
-                //cxx_flags.push(root_dir());
+            if is_static_build() {
                 cxx_flags.push(" -isystem ");
                 cxx_flags.push(root_dir().join("include"));
             }
@@ -431,34 +443,31 @@ fn build_libcxx() {
     );
     build_with_cmake(Path::new(&dirname).join("libcxx"), |command, _root_dir| {
         eprintln!("Override libcxx CXXFLAGS = {libcxx_cxx_flags:?}");
-        if is_musl_target() {
+        if is_static_build() {
             command.arg("-DLIBCXX_HAS_MUSL_LIBC=1");
         }
-        command
-            .env("CXXFLAGS", &libcxx_cxx_flags)
-            //.arg(format!("-DCMAKE_CXX_FLAGS_RELEASE={libcxx_cxx_flags}"))
-            .args([
-                "-DLIBCXX_ENABLE_EXCEPTIONS=0",
-                "-DLIBCXX_ENABLE_SHARED=0",
-                "-DLIBCXX_ENABLE_STATIC=1",
-                "-DLIBCXX_INCLUDE_TESTS=0",
-                "-DLIBCXX_INCLUDE_BENCHMARKS=0",
-                "-DLIBCXX_INCLUDE_DOCS=0",
-                "-DLIBCXX_USE_COMPILER_RT=1",
-                "-DLIBCXXABI_USE_LLVM_UNWINDER=0",
-                "-DLIBCXX_ENABLE_STATIC_ABI_LIBRARY=1",
-                "-DPython3_EXECUTABLE=python3",
-            ])
+        command.env("CXXFLAGS", &libcxx_cxx_flags).args([
+            "-DLIBCXX_ENABLE_EXCEPTIONS=0",
+            "-DLIBCXX_ENABLE_SHARED=0",
+            "-DLIBCXX_ENABLE_STATIC=1",
+            "-DLIBCXX_INCLUDE_TESTS=0",
+            "-DLIBCXX_INCLUDE_BENCHMARKS=0",
+            "-DLIBCXX_INCLUDE_DOCS=0",
+            "-DLIBCXX_USE_COMPILER_RT=1",
+            "-DLIBCXXABI_USE_LLVM_UNWINDER=0",
+            "-DLIBCXX_ENABLE_STATIC_ABI_LIBRARY=1",
+            "-DPython3_EXECUTABLE=python3",
+        ])
     });
     let _ = fs::remove_file(root_dir().join("lib").join("libunwind.a"));
 }
 
 fn substitute(path: impl AsRef<Path>, rules: &[(impl AsRef<str>, impl AsRef<str>)]) {
-    let mut text = fs::read_to_string(path.as_ref()).unwrap();
+    let mut text = fs::read_to_string(path.as_ref()).unwrap_display();
     for (value, replacement) in rules {
         text = text.replace(value.as_ref(), replacement.as_ref());
     }
-    fs::write(path.as_ref(), text.as_bytes()).unwrap();
+    fs::write(path.as_ref(), text.as_bytes()).unwrap_display();
 }
 
 trait CommandExt {
@@ -492,6 +501,20 @@ fn add_context(error: std::io::Error, command: &Command) -> std::io::Error {
         .map(|path| path.to_path_buf())
         .unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
     std::io::Error::other(format!(
-        "Failed to execute {args:?}: {error}; env {env:?}, dir {cwd:?}"
+        "Failed to execute command: {error}\n\ncommand: {args:#?}\n\nenv: {env:#?}\n\ndir: {cwd:?}"
     ))
+}
+
+trait ResultExt<O> {
+    fn unwrap_display(self) -> O;
+}
+
+impl<O, E: std::fmt::Display> ResultExt<O> for Result<O, E> {
+    #[track_caller]
+    fn unwrap_display(self) -> O {
+        match self {
+            Ok(o) => o,
+            Err(e) => panic!("{e}"),
+        }
+    }
 }

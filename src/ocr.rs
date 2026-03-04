@@ -48,6 +48,17 @@ impl Default for Config<'static, 'static> {
 }
 
 /// OCR engine interface.
+///
+/// ```no_run
+/// use tesseract_ocr_static::{Image, TextRecognizer};
+/// use image::ImageReader;
+///
+/// let rgb = ImageReader::open("hello.txt").unwrap().decode().unwrap().into_rgb8();
+/// let image = Image::from_rgb(rgb.width(), rgb.height(), rgb.as_raw()).unwrap();
+/// let mut recognizer = TextRecognizer::new().unwrap();
+/// let results = recognizer.recognize_text(&image).unwrap();
+/// assert_eq!("Hello world", results.get_utf8_text().as_str());
+/// ```
 pub struct TextRecognizer {
     base: Tesseract,
 }
