@@ -1,0 +1,11 @@
+[package]
+name = "tesseract-ocr-static-cli"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+anyhow = "1.0.102"
+fs = { package = "fs-err", version = "3.3.0" }
+tesseract-ocr-static = { path = ".." }
+tempfile = "3.26.0"

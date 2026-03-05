@@ -1,0 +1,23 @@
+[package]
+name = "tesseract-ocr-static-c"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = true
+homepage = "https://github.com/igankevich/tesseract-ocr-static"
+repository = "https://github.com/igankevich/tesseract-ocr-static"
+documentation = "https://docs.rs/tesseract-ocr-static"
+readme = "README.md"
+description = "Self-contained, statically-built Tesseract OCR and Leptonica libraries."
+keywords = ["character", "recognition", "leptonica", "layout"]
+categories = ["external-ffi-bindings", "multimedia::images", "computer-vision"]
+include = ["**/*.rs", "Cargo.toml", "README.md", "wrapper.h"]
+
+[build-dependencies]
+bindgen = "0.72.1"
+fs = { package = "fs-err", version = "3.3.0" }
+jobserver = "0.1.34"
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
