@@ -6,7 +6,7 @@ main() {
     trap cleanup EXIT
     download_tesseract_data
     cargo_test
-    cargo_test_musl
+    cargo_test_static
 }
 
 download_tesseract_data() {
@@ -20,10 +20,18 @@ cargo_test() {
     cargo test --workspace --all-features
 }
 
-cargo_test_musl() {
-    target=x86_64-unknown-linux-musl
-    rustup target add "$target"
-    cargo test --target "$target" --workspace --all-features
+cargo_test_static() {
+    case "$(uname -s)" in
+    Linux)
+        target="$(uname -m)"-unknown-linux-musl
+        rustup target add "$target"
+        cargo test --target "$target" --workspace --all-features
+        ;;
+    *)
+        env RUSTFLAGS='-C target-feature=+crt-static' \
+            cargo test --workspace --all-features
+        ;;
+    esac
 }
 
 cleanup() {

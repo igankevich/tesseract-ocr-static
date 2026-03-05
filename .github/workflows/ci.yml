@@ -2,14 +2,14 @@
 name: CI
 on: [push]
 jobs:
-  test:
+  ubuntu:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v6
       - name: Install dependencies
-        run: sudo -n apt-get update -qq && sudo -n apt-get install -qqy nasm clang-20
-          lld-20 llvm-20
+        run: sudo -n apt-get update -qq && sudo -n apt-get install -qqy clang-20 lld-20
+          llvm-20
       - name: Test
         env:
           RUST_BACKTRACE: 1
@@ -18,4 +18,20 @@ jobs:
           TESSERACT_AR: llvm-ar-20
           TESSERACT_RANLIB: llvm-ranlib-20
           LIBCLANG_PATH: /usr/lib/llvm-20/lib
+        run: ./ci/test.sh
+  macos:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Install dependencies
+        run: brew install llvm@20 cmake
+      - name: Test
+        env:
+          RUST_BACKTRACE: 1
+          TESSERACT_CC: /opt/homebrew/Cellar/llvm@20/20.1.8/bin/clang-20
+          TESSERACT_CXX: /opt/homebrew/Cellar/llvm@20/20.1.8/bin/clang++-20
+          TESSERACT_AR: /opt/homebrew/Cellar/llvm@20/20.1.8/bin/llvm-ar-20
+          TESSERACT_RANLIB: /opt/homebrew/Cellar/llvm@20/20.1.8/bin/llvm-ranlib-20
+          LIBCLANG_PATH: /opt/homebrew/Cellar/llvm@20/20.1.8/lib
         run: ./ci/test.sh
