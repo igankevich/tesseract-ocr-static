@@ -10,6 +10,8 @@ i.e. `*-gnu` and `*-musl` targets.
 
 Required CLI tools: `cmake`, `make`, `git`, `python3`.
 
+Required compiler: Clang 20+.
+
 ## Environment variables
 
 The following environment variables affect the build process.

@@ -3,9 +3,18 @@ name = "tesseract-ocr-static"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+publish = true
+homepage = "https://github.com/igankevich/tesseract-ocr-static"
+repository = "https://github.com/igankevich/tesseract-ocr-static"
+documentation = "https://docs.rs/tesseract-ocr-static"
+readme = "README.md"
+description = "Ergonomic, self-contained, statically-built Rust interface for Tesseract OCR."
+keywords = ["character", "recognition", "leptonica", "layout"]
+categories = ["api-bindings", "multimedia::images", "computer-vision"]
+include = ["**/*.rs", "Cargo.toml", "README.md", "variables.md"]
 
 [dependencies]
-c = { package = "tesseract-ocr-static-c", path = "c" }
+c = { package = "tesseract-ocr-static-c", path = "c", version = "0.1.0" }
 
 [dev-dependencies]
 image = "0.25.9"
