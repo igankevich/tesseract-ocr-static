@@ -35,10 +35,20 @@ macro_rules! pre_built_archive {
     };
 }
 
-const PRE_BUILT_ARCHIVES: &[(&str, &str, &str)] = &[pre_built_archive!(
-    "x86_64-unknown-linux-gnu",
-    "96f0b3a571f02b51df0e8488b16a0c088c55146bc14de900e9eef8dde8290b46d57c2d213d61aa1c68a494519301e655c77c5ad632a7c9e54445d2c18514bba6"
-)];
+const PRE_BUILT_ARCHIVES: &[(&str, &str, &str)] = &[
+    pre_built_archive!(
+        "x86_64-unknown-linux-gnu",
+        "5aabd4139fa5c35d01679540da7f3fbe36bd6bc3844d63507f7b88459febb3d51ea1f5083e3adfb9592c661fe5f98111d59a6338d0067bcf9f817a891c9a60a8"
+    ),
+    pre_built_archive!(
+        "x86_64-unknown-linux-musl",
+        "4ae12e3d558d8e8866ba0241f8ac2d5a16153f9ba2594d9c5d165cc644dc13a758baa01d6a2e8371320d2482be611fc967a2424c658f565ef79f3c76c6181c0b"
+    ),
+    pre_built_archive!(
+        "aarch64-apple-darwin",
+        "7ffbdd75060b219466e59462a7a257658810ac2fda324c0d1bdee2392c37b5f8c0ded57aba4a1cb4275d97a07229c037e748f522a73710baa955d40c416165f4"
+    ),
+];
 
 static TESSERACT_CC: LazyLock<OsString> = LazyLock::new(|| tess_var("CC", "clang"));
 static TESSERACT_CXX: LazyLock<OsString> = LazyLock::new(|| tess_var("CXX", "clang++"));

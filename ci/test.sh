@@ -55,6 +55,7 @@ create_tar_archive() {
         --numeric-owner \
         --owner=0 \
         --group=0 \
+        --mtime=@0 \
         --file="$root"/root-"$version"-"$target".tar
     zstd -10 --compress "$root"/root-"$version"-"$target".tar
     cd "$root"
