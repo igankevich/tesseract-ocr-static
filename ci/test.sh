@@ -40,7 +40,7 @@ cargo_test_static() {
 }
 
 create_tar_archive() {
-    root_dir="$(find target -type d -name __root__)"
+    root_dir="$(find "$root"/target -type d -name __root__)"
     target="$(cat "$root_dir"/../target)"
     version="$(cat "$root_dir"/../version)"
     cd "$root_dir"
@@ -49,13 +49,15 @@ create_tar_archive() {
         find . -type l -not -name ".*" -print0
     } | env LC_ALL=C sort --zero-terminated >"$workdir"/files
     tar \
+        --create \
         --null \
         --files-from="$workdir"/files \
         --numeric-owner \
         --owner=0 \
         --group=0 \
-        --file=- |
-        zstd -10 --compress - >"$root"/root-"$version"-"$target".tar.zst
+        --file="$root"/root-"$version"-"$target".tar
+    zstd -10 --compress "$root"/root-"$version"-"$target".tar
+    cd "$root"
 }
 
 remove_root_dir() {
