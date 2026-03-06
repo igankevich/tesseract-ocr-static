@@ -47,7 +47,7 @@ create_tar_archive() {
     {
         find . -type f -not -name ".*" -print0
         find . -type l -not -name ".*" -print0
-    } | env LC_ALL=C sort --null-terminated >"$workdir"/files
+    } | env LC_ALL=C sort --zero-terminated >"$workdir"/files
     tar \
         --null \
         --files-from="$workdir"/files \
