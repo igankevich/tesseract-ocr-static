@@ -1,6 +1,5 @@
 #![doc = include_str!("../README.md")]
 
-#[cfg_attr(any(doc, docsrs), path = "c_stub.rs")]
 mod c;
 
 pub use self::c::{
