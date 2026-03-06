@@ -12,6 +12,7 @@ Required CLI tools: `cmake`, `make`, `git`, `python3`.
 
 Required compiler: Clang 20+.
 
+
 ## Environment variables
 
 The following environment variables affect the build process.
@@ -26,3 +27,9 @@ The following environment variables affect the build process.
 | `TESSERACT_CFLAGS` | `-O3` | C compiler flags |
 | `TESSERACT_CXXFLAGS` | `-O3` | C++ compiler flags |
 | `TESSERACT_LDFLAGS` | | Linker flags |
+
+
+## High-level interface
+
+The following crate provides ergonomic Rust interface:
+[`tesseract-ocr-static`](https://docs.rs/tesseract-ocr-static/latest/tesseract-ocr-static/).

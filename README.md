@@ -1,9 +1,9 @@
 This crate provides ergonomic Rust interface for underlying [Tesseract OCR library](https://tesseract-ocr.github.io/).
-There are two main structs: [`TextRecognizer`](crate::TextRecognizer) and [`LayoutAnalyzer`](crate::LayoutAnalyzer).
+There are two main structs: [`TextRecognizer`] and [`LayoutAnalyzer`].
 `TextRecognizer` allows one to recognize text from the picture and outputs the text, the bounding boxes and other parameters.
 `LayoutAnalyzer` allows one to analyze the layout without recognizing text; it should consume less memory than `TextRecognizer`.
 
-Pictures can be loaded into the library via [`Image`](crate::Image) struct that accepts images in raw RGB/RGBA formats; no other formats are supported.
+Pictures can be loaded into the library via [`Image`] struct that accepts images in raw RGB/RGBA formats; no other formats are supported.
 If you need to read an image from a file in another format, you can do so with any Rust crate (e.g. [image](https://docs.rs/image/latest/image/)).
 
 
@@ -11,7 +11,7 @@ If you need to read an image from a file in another format, you can do so with a
 
 ### Simple character recognition
 
-```no_run
+```rust,no_run
 use tesseract_ocr_static::{Image, TextRecognizer};
 use image::ImageReader;
 
@@ -24,7 +24,7 @@ assert_eq!("Hello world", results.get_utf8_text().as_str());
 
 ### Print recognized text and corresponding bounding boxes
 
-```no_run
+```rust,no_run
 use tesseract_ocr_static::{Image, LayoutLevel, TextRecognizer};
 use image::ImageReader;
 

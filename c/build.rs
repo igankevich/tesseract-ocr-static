@@ -111,7 +111,13 @@ fn is_static_build() -> bool {
 }
 
 fn main() {
-    if cfg!(docsrs) {
+    if var_os("DOCS_RS").is_some() {
+        let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
+        fs::copy(
+            concat!(env!("CARGO_MANIFEST_DIR"), "/src/c_stub.rs"),
+            out_dir.join("bindings.rs"),
+        )
+        .unwrap_display();
         return;
     }
     println!("cargo::rerun-if-changed=build.rs");
@@ -176,7 +182,7 @@ fn fetch_git(url: &str, tag: &str, dirname: &str) {
     }
     Command::new("git")
         .arg("clone")
-        .arg(format!("--revision={tag}"))
+        .arg(format!("--branch={tag}"))
         .arg("--depth=1")
         .arg(url)
         .arg(&dir)

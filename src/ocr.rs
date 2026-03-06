@@ -49,7 +49,7 @@ impl Default for Config<'static, 'static> {
 
 /// OCR engine interface.
 ///
-/// ```no_run
+/// ```rust,no_run
 /// use tesseract_ocr_static::{Image, TextRecognizer};
 /// use image::ImageReader;
 ///
