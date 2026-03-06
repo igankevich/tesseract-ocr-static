@@ -17,6 +17,29 @@ const LIBCXX_VERSION: &str = "22.1.0";
 const LEPTONICA_VERSION: &str = "1.87.0";
 const TESSERACT_VERSION: &str = "5.5.2";
 
+macro_rules! pre_built_archive {
+    ($target: literal, $hash: literal) => {
+        (
+            $target,
+            concat!(
+                "https://github.com/igankevich/tesseract-ocr-static/releases/download/",
+                env!("CARGO_PKG_VERSION"),
+                "/root-",
+                env!("CARGO_PKG_VERSION"),
+                "-",
+                $target,
+                ".tar.zst"
+            ),
+            $hash,
+        )
+    };
+}
+
+const PRE_BUILT_ARCHIVES: &[(&str, &str, &str)] = &[pre_built_archive!(
+    "x86_64-unknown-linux-gnu",
+    "96f0b3a571f02b51df0e8488b16a0c088c55146bc14de900e9eef8dde8290b46d57c2d213d61aa1c68a494519301e655c77c5ad632a7c9e54445d2c18514bba6"
+)];
+
 static TESSERACT_CC: LazyLock<OsString> = LazyLock::new(|| tess_var("CC", "clang"));
 static TESSERACT_CXX: LazyLock<OsString> = LazyLock::new(|| tess_var("CXX", "clang++"));
 static TESSERACT_AR: LazyLock<OsString> = LazyLock::new(|| tess_var("AR", "llvm-ar"));
@@ -83,7 +106,7 @@ fn job_client() -> Option<&'static jobserver::Client> {
 
 fn root_dir() -> PathBuf {
     let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
-    out_dir.join("root")
+    out_dir.join("__root__")
 }
 
 fn tess_var(name: &str, default_value: impl AsRef<OsStr>) -> OsString {
@@ -120,16 +143,42 @@ fn main() {
         .unwrap_display();
         return;
     }
+    if var_os("TESSERACT_BUILD_FROM_SOURCE").is_some() {
+        build_from_source();
+    } else if !download_pre_built_binaries() {
+        println!(
+            "Pre-built archive for {:?} not found; building from source",
+            std::env::var("TARGET")
+        );
+        build_from_source();
+    }
+    fs::write(root_dir().join("target"), std::env::var("TARGET").unwrap()).unwrap_display();
+    fs::write(
+        root_dir().join("version"),
+        std::env::var("CARGO_PKG_VERSION").unwrap(),
+    )
+    .unwrap_display();
     println!("cargo::rerun-if-changed=build.rs");
     println!("cargo::rerun-if-changed=wrapper.h");
     println!("cargo::rerun-if-env-changed=PATH");
-    println!("cargo::rerun-if-env-changed=TESSERACT_CC");
-    println!("cargo::rerun-if-env-changed=TESSERACT_CXX");
-    println!("cargo::rerun-if-env-changed=TESSERACT_AR");
-    println!("cargo::rerun-if-env-changed=TESSERACT_RANLIB");
-    println!("cargo::rerun-if-env-changed=TESSERACT_CFLAGS");
-    println!("cargo::rerun-if-env-changed=TESSERACT_CXXFLAGS");
-    println!("cargo::rerun-if-env-changed=TESSERACT_LDFLAGS");
+    generate_rust_bindings();
+}
+
+fn build_from_source() {
+    for var in [
+        "TESSERACT_CC",
+        "TESSERACT_CXX",
+        "TESSERACT_AR",
+        "TESSERACT_RANLIB",
+        "TESSERACT_CFLAGS",
+        "TESSERACT_CXXFLAGS",
+        "TESSERACT_LDFLAGS",
+        "TESSERACT_BUILD_FROM_SOURCE",
+        "TESSERACT_PRE_BUILT_ARCHIVE_URL",
+        "TESSERACT_PRE_BUILT_ARCHIVE_HASH",
+    ] {
+        println!("cargo::rerun-if-env-changed={var}");
+    }
     eprintln!("CC = {}", (*TESSERACT_CC).display());
     eprintln!("CXX = {}", (*TESSERACT_CXX).display());
     eprintln!("AR = {}", (*TESSERACT_AR).display());
@@ -143,13 +192,81 @@ fn main() {
     build_libcxx();
     build_leptonica();
     build_tesseract();
+}
+
+fn download_pre_built_binaries() -> bool {
     let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
-    let root_dir = out_dir.join("root");
+    let target = std::env::var("TARGET").unwrap();
+    let archive_file = out_dir.join("root.tar.zst");
+    let (archive_url, archive_hash) = match (
+        std::env::var("TESSERACT_PRE_BUILT_ARCHIVE_URL"),
+        std::env::var("TESSERACT_PRE_BUILT_ARCHIVE_HASH"),
+    ) {
+        (Ok(url), Ok(hash)) => (url, hash),
+        _ => {
+            let Some((url, hash)) =
+                PRE_BUILT_ARCHIVES
+                    .iter()
+                    .find_map(|(archive_target, url, hash)| {
+                        (archive_target == &target).then_some((url, hash))
+                    })
+            else {
+                return false;
+            };
+            (url.to_string(), hash.to_string())
+        }
+    };
+    let mut existing_archive_is_ok = false;
+    if archive_file.exists() {
+        let actual_hash = b2sum(&archive_file);
+        existing_archive_is_ok = archive_hash.as_str() == actual_hash.as_str();
+        if !existing_archive_is_ok {
+            let _ = fs::remove_file(&archive_file);
+        }
+    }
+    if !existing_archive_is_ok {
+        println!("Downloading pre-built archive from {archive_url:?}...");
+        Command::new("curl")
+            .args(["--location", "--fail"])
+            .arg("-o")
+            .arg(&archive_file)
+            .arg(&archive_url)
+            .status_checked()
+            .unwrap_display();
+        let actual_hash = b2sum(&archive_file);
+        if archive_hash.as_str() != actual_hash.as_str() {
+            panic!(
+                "Failed to verify archive from {archive_url:?}:\n\
+                expected hash {archive_hash:?}\n\
+                actual hash   {actual_hash:?}\n"
+            );
+        }
+    }
+    let root_dir = out_dir.join("__root__");
+    fs::create_dir_all(&root_dir).unwrap_display();
+    Command::new("tar")
+        .arg("-C")
+        .arg(&root_dir)
+        .arg("-xf")
+        .arg(&archive_file)
+        .status_checked()
+        .unwrap_display();
+    true
+}
+
+fn b2sum(file: &Path) -> String {
+    let mut b2hasher = blake2b_simd::Params::new().hash_length(64).to_state();
+    std::io::copy(&mut fs::File::open(file).unwrap_display(), &mut b2hasher).unwrap_display();
+    b2hasher.finalize().to_hex().to_string()
+}
+
+fn generate_rust_bindings() {
+    let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
+    let root_dir = out_dir.join("__root__");
     println!("cargo:rustc-link-search={}/lib", root_dir.display());
-    println!("cargo:rustc-link-lib=static=tesseract");
-    println!("cargo:rustc-link-lib=static=leptonica");
-    println!("cargo:rustc-link-lib=static=c++");
-    println!("cargo:rustc-link-lib=static=c++abi");
+    for lib in ["tesseract", "leptonica", "c++", "c++abi"] {
+        println!("cargo:rustc-link-lib=static={lib}");
+    }
     let builder = bindgen::Builder::default()
         .header("wrapper.h")
         .clang_arg("-DNO_CONSOLE_IO")
@@ -158,11 +275,11 @@ fn main() {
         .parse_callbacks(Box::new(IgnoreComments))
         .allowlist_file("^.*/leptonica/.*$")
         .allowlist_file("^.*/tesseract/.*$");
-    let bindings = builder.generate().expect("Unable to generate bindings");
+    let bindings = builder.generate().unwrap_display();
     let out_path = PathBuf::from(std::env::var("OUT_DIR").unwrap());
     bindings
         .write_to_file(out_path.join("bindings.rs"))
-        .expect("Couldn't write bindings!");
+        .unwrap_display()
 }
 
 #[derive(Debug)]
@@ -214,7 +331,7 @@ fn configure_with_cmake(
     let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
     let archive_dir = out_dir.join(archive_dir.as_ref());
     let build_dir = archive_dir.join("__build__");
-    let root_dir = out_dir.join("root");
+    let root_dir = out_dir.join("__root__");
     let _ = fs::remove_dir_all(&build_dir);
     fs::create_dir_all(&build_dir).unwrap_display();
     configure(
@@ -238,7 +355,7 @@ fn configure_with_cmake(
 
 fn make_with_cmake(build_dir: impl AsRef<Path>) {
     let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
-    let root_dir = out_dir.join("root");
+    let root_dir = out_dir.join("__root__");
     make_command()
         .arg("VERBOSE=1")
         .current_dir(&build_dir)
@@ -273,7 +390,7 @@ fn build_musl() {
     let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
     let archive_dir = out_dir.join(format!("musl-{MUSL_VERSION}"));
     let build_dir = archive_dir.join("__build__");
-    let root_dir = out_dir.join("root");
+    let root_dir = out_dir.join("__root__");
     let _ = fs::remove_dir_all(&build_dir);
     fs::create_dir_all(&build_dir).unwrap_display();
     hermetic_command(archive_dir.join("configure"))
@@ -355,6 +472,8 @@ fn build_tesseract() {
             "-DDISABLE_CURL=1",
         ])
     });
+    let _ = fs::remove_file(root_dir().join("bin").join("tesseract"));
+    let _ = fs::remove_file(root_dir().join("share").join("tessdata"));
 }
 
 fn build_libcxx() {
@@ -365,7 +484,7 @@ fn build_libcxx() {
         &dirname,
     );
     let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
-    let _ = fs::remove_dir_all(out_dir.join("root").join("include").join("c++"));
+    let _ = fs::remove_dir_all(out_dir.join("__root__").join("include").join("c++"));
     build_with_cmake(
         Path::new(&dirname).join("libunwind"),
         |command, _root_dir| {
