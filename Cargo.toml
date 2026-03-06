@@ -17,7 +17,7 @@ include = ["**/*.rs", "Cargo.toml", "README.md", "variables.md"]
 c = { package = "tesseract-ocr-static-c", path = "c", version = "0.1.1" }
 
 [dev-dependencies]
-image = "0.25.9"
+image = { version = "0.25.9", default-features = false, features = ["png"] }
 
 [workspace]
 members = [".", "cli", "c"]

@@ -134,8 +134,8 @@ fn is_static_build() -> bool {
 }
 
 fn main() {
+    let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
     if var_os("DOCS_RS").is_some() {
-        let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
         fs::copy(
             concat!(env!("CARGO_MANIFEST_DIR"), "/src/c_stub.rs"),
             out_dir.join("bindings.rs"),
@@ -152,9 +152,9 @@ fn main() {
         );
         build_from_source();
     }
-    fs::write(root_dir().join("target"), std::env::var("TARGET").unwrap()).unwrap_display();
+    fs::write(out_dir.join("target"), std::env::var("TARGET").unwrap()).unwrap_display();
     fs::write(
-        root_dir().join("version"),
+        out_dir.join("version"),
         std::env::var("CARGO_PKG_VERSION").unwrap(),
     )
     .unwrap_display();
