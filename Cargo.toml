@@ -14,7 +14,7 @@ categories = ["api-bindings", "multimedia::images", "computer-vision"]
 include = ["**/*.rs", "Cargo.toml", "README.md", "variables.md"]
 
 [dependencies]
-c = { package = "tesseract-ocr-static-c", path = "c", version = "0.1.1" }
+c = { package = "tesseract-ocr-static-c", path = "c", version = "0.1.2" }
 
 [dev-dependencies]
 image = { version = "0.25.9", default-features = false, features = ["png"] }
@@ -24,7 +24,7 @@ members = [".", "cli", "c"]
 default-members = [".", "cli", "c"]
 
 [workspace.package]
-version = "0.1.1"
+version = "0.1.2"
 edition = "2024"
 license = "Apache-2.0"
 
