@@ -334,6 +334,13 @@ fn make_command() -> Command {
     command
 }
 
+fn os_str_concat(a: impl AsRef<OsStr>, b: impl AsRef<OsStr>) -> OsString {
+    let mut buf = OsString::new();
+    buf.push(a.as_ref());
+    buf.push(b.as_ref());
+    buf
+}
+
 fn configure_with_cmake(
     archive_dir: impl AsRef<Path>,
     configure: impl for<'a, 'b> FnOnce(&'a mut Command, &'b Path) -> &'a mut Command,
@@ -346,7 +353,7 @@ fn configure_with_cmake(
     fs::create_dir_all(&build_dir).unwrap_display();
     configure(
         hermetic_command("cmake")
-            .arg(format!("-DCMAKE_INSTALL_PREFIX={}", root_dir.display()))
+            .arg(os_str_concat("-DCMAKE_INSTALL_PREFIX=", &root_dir))
             .arg("-DCMAKE_BUILD_TYPE=Release")
             .arg("-DCMAKE_INSTALL_LIBDIR=lib")
             .arg(&archive_dir)
@@ -356,6 +363,8 @@ fn configure_with_cmake(
             .env("CXXFLAGS", &*CXXFLAGS)
             .env("LDFLAGS", &*LDFLAGS)
             .env("PKG_CONFIG_PATH", root_dir.join("lib").join("pkgconfig"))
+            .arg(os_str_concat("-DCMAKE_AR=", &*TESSERACT_AR))
+            .arg(os_str_concat("-DCMAKE_RANLIB=", &*TESSERACT_RANLIB))
             .current_dir(&build_dir),
         &root_dir,
     )
@@ -405,7 +414,7 @@ fn build_musl() {
     fs::create_dir_all(&build_dir).unwrap_display();
     hermetic_command(archive_dir.join("configure"))
         .current_dir(&build_dir)
-        .arg(format!("--prefix={}", root_dir.display()))
+        .arg(os_str_concat("--prefix=", &root_dir))
         .arg("--enable-wrapper=clang")
         .arg("--disable-shared")
         .env("AR", &*TESSERACT_AR)
@@ -427,7 +436,7 @@ fn build_leptonica() {
         &dirname,
     );
     build_with_cmake(&dirname, |command, _root_dir| {
-        let more_c_flags = format!("{} -DNO_CONSOLE_IO", (*CFLAGS).display());
+        let more_c_flags = os_str_concat(&*CFLAGS, " -DNO_CONSOLE_IO");
         command.env("CFLAGS", more_c_flags).args([
             "-DBUILD_SHARED_LIBS=0",
             "-DSTRICT_CONF=1",
