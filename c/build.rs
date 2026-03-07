@@ -46,7 +46,7 @@ const PRE_BUILT_ARCHIVES: &[(&str, &str, &str)] = &[
     ),
     pre_built_archive!(
         "aarch64-apple-darwin",
-        "51312821f580c7227ee2815d897c7579a6506efdcf3203691d29b36ba5589e517a8c342cd81a6c2e30eb810f21c2dffa7c0053e513272a96902a30004b459804"
+        "8fab008e50262b6a74bd77d9d5be4cc106e8b0882646eb90b927011a296dfed7cf9d5c11709ca30e5e14ee31e772c1f6076eead44b5df39dfb30e1421c7d5276"
     ),
 ];
 
