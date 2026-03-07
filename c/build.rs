@@ -144,6 +144,14 @@ fn is_static_build() -> bool {
 }
 
 fn main() {
+    for var in [
+        "DOCS_RS",
+        "TESSERACT_BUILD_FROM_SOURCE",
+        "TESSERACT_PRE_BUILT_ARCHIVE_URL",
+        "TESSERACT_PRE_BUILT_ARCHIVE_HASH",
+    ] {
+        println!("cargo::rerun-if-env-changed={var}");
+    }
     let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
     if var_os("DOCS_RS").is_some() {
         fs::copy(
@@ -183,9 +191,6 @@ fn build_from_source() {
         "TESSERACT_CFLAGS",
         "TESSERACT_CXXFLAGS",
         "TESSERACT_LDFLAGS",
-        "TESSERACT_BUILD_FROM_SOURCE",
-        "TESSERACT_PRE_BUILT_ARCHIVE_URL",
-        "TESSERACT_PRE_BUILT_ARCHIVE_HASH",
     ] {
         println!("cargo::rerun-if-env-changed={var}");
     }
