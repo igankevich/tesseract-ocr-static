@@ -34,7 +34,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
       - name: Install dependencies
-        run: brew install llvm@20
+        run: |
+          brew install llvm@20 gnu-tar
+          echo /opt/homebrew/opt/gnu-tar/libexec/gnubin >> $GITHUB_PATH
       - name: Test
         env:
           RUST_BACKTRACE: 1
