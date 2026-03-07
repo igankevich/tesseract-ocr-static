@@ -38,15 +38,15 @@ macro_rules! pre_built_archive {
 const PRE_BUILT_ARCHIVES: &[(&str, &str, &str)] = &[
     pre_built_archive!(
         "x86_64-unknown-linux-gnu",
-        "5aabd4139fa5c35d01679540da7f3fbe36bd6bc3844d63507f7b88459febb3d51ea1f5083e3adfb9592c661fe5f98111d59a6338d0067bcf9f817a891c9a60a8"
+        "de1660df7d25ad5c0ed95ee01b1e5ec7b48c01d0e153aa723b1b797665556ab7014038f267ef820a4a8f1f26234368abe2ec01f4b913d0484553635cc6556b14"
     ),
     pre_built_archive!(
         "x86_64-unknown-linux-musl",
-        "4ae12e3d558d8e8866ba0241f8ac2d5a16153f9ba2594d9c5d165cc644dc13a758baa01d6a2e8371320d2482be611fc967a2424c658f565ef79f3c76c6181c0b"
+        "4e5f1cc01395f3af23636f39c4a20fb6fdbf67ed24957eaea7c08453266bb60c814a956a9124618a6e0cef5303f4885c3527f823753bfca5622dcae70fd2da6f"
     ),
     pre_built_archive!(
         "aarch64-apple-darwin",
-        "7ffbdd75060b219466e59462a7a257658810ac2fda324c0d1bdee2392c37b5f8c0ded57aba4a1cb4275d97a07229c037e748f522a73710baa955d40c416165f4"
+        "51312821f580c7227ee2815d897c7579a6506efdcf3203691d29b36ba5589e517a8c342cd81a6c2e30eb810f21c2dffa7c0053e513272a96902a30004b459804"
     ),
 ];
 

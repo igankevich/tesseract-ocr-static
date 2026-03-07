@@ -20,6 +20,8 @@ jobs:
           TESSERACT_BUILD_FROM_SOURCE: 1
           LIBCLANG_PATH: /usr/lib/llvm-20/lib
         run: ./ci/test.sh
+      - name: Print BLAKE2b hashes
+        run: b2sum *.tar.zst
       - name: Upload pre-built binaries as artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -47,6 +49,8 @@ jobs:
           TESSERACT_BUILD_FROM_SOURCE: 1
           LIBCLANG_PATH: /opt/homebrew/Cellar/llvm@20/20.1.8/lib
         run: ./ci/test.sh
+      - name: Print BLAKE2b hashes
+        run: b2sum *.tar.zst
       - name: Upload pre-built binaries as artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -60,8 +64,7 @@ jobs:
     needs: [ubuntu, macos]
     permissions:
       contents: write
-    # TODO
-    #  if: github.ref_type == 'tag'
+    if: github.ref_type == 'tag'
     steps:
       - name: Download Linux pre-built binaries
         uses: actions/download-artifact@v5
