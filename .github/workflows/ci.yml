@@ -19,6 +19,8 @@ jobs:
           TESSERACT_RANLIB: llvm-ranlib-20
           TESSERACT_BUILD_FROM_SOURCE: 1
           LIBCLANG_PATH: /usr/lib/llvm-20/lib
+          # Deterministic builds
+          SOURCE_DATE_EPOCH: 0
         run: ./ci/test.sh
       - name: Print BLAKE2b hashes
         run: b2sum *.tar.zst
@@ -49,6 +51,8 @@ jobs:
           TESSERACT_RANLIB: /opt/homebrew/Cellar/llvm@20/20.1.8/bin/llvm-ranlib
           TESSERACT_BUILD_FROM_SOURCE: 1
           LIBCLANG_PATH: /opt/homebrew/Cellar/llvm@20/20.1.8/lib
+          # Deterministic builds
+          ZERO_AR_DATE: 1
         run: ./ci/test.sh
       - name: Print BLAKE2b hashes
         run: b2sum *.tar.zst
