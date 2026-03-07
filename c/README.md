@@ -8,7 +8,7 @@ Since there are no dependencies one needs to supply images in raw RGB/RGBA/grays
 The build should work with both dynamically and statically linked C libraries,
 i.e. `*-gnu` and `*-musl` targets.
 
-Required CLI tools: `cmake`, `make`, `git`, `python3`.
+Required CLI tools: `cmake`, `make`, `git`, `python3`, `curl`, `tar`, `zstd`.
 
 Required compiler: Clang 20+.
 
@@ -27,6 +27,9 @@ The following environment variables affect the build process.
 | `TESSERACT_CFLAGS` | `-O3` | C compiler flags |
 | `TESSERACT_CXXFLAGS` | `-O3` | C++ compiler flags |
 | `TESSERACT_LDFLAGS` | | Linker flags |
+| `TESSERACT_BUILD_FROM_SOURCE` | | If set, Tesseract OCR is built from source; otherwise an attempt is made to download pre-built binary. If the attempt fails, it is built from source. |
+| `TESSERACT_PRE_BUILT_ARCHIVE_URL` | | Override URL from which pre-built binary is downloaded. Normally you should have a different URL for each Rust target. |
+| `TESSERACT_PRE_BUILT_ARCHIVE_HASH` | | BLAKE2b hash of the pre-built binary archive. Must be set if you've overriden hard-coded archive URLs. Can be computed with `b2sum` CLI tool. |
 
 
 ## High-level interface

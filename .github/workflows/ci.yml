@@ -15,17 +15,31 @@ jobs:
           RUST_BACKTRACE: 1
           TESSERACT_CC: clang-20
           TESSERACT_CXX: clang++-20
-          TESSERACT_AR: llvm-ar-20
-          TESSERACT_RANLIB: llvm-ranlib-20
+          TESSERACT_AR: /usr/lib/llvm-20/bin/llvm-ar
+          TESSERACT_RANLIB: /usr/lib/llvm-20/bin/llvm-ranlib
+          TESSERACT_BUILD_FROM_SOURCE: 1
           LIBCLANG_PATH: /usr/lib/llvm-20/lib
         run: ./ci/test.sh
+      - name: Print BLAKE2b hashes
+        run: b2sum *.tar.zst
+      - name: Upload pre-built binaries as artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: pre-built-binaries-linux
+          path: '*.tar.zst'
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 1
   macos:
     runs-on: macos-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v6
       - name: Install dependencies
-        run: brew install llvm@20
+        run: |
+          brew install llvm@20 gnu-tar coreutils
+          echo /opt/homebrew/opt/gnu-tar/libexec/gnubin >> $GITHUB_PATH
+          echo /opt/homebrew/opt/coreutils/libexec/gnubin >> $GITHUB_PATH
       - name: Test
         env:
           RUST_BACKTRACE: 1
@@ -33,5 +47,70 @@ jobs:
           TESSERACT_CXX: /opt/homebrew/Cellar/llvm@20/20.1.8/bin/clang++
           TESSERACT_AR: /opt/homebrew/Cellar/llvm@20/20.1.8/bin/llvm-ar
           TESSERACT_RANLIB: /opt/homebrew/Cellar/llvm@20/20.1.8/bin/llvm-ranlib
+          TESSERACT_BUILD_FROM_SOURCE: 1
           LIBCLANG_PATH: /opt/homebrew/Cellar/llvm@20/20.1.8/lib
         run: ./ci/test.sh
+      - name: Print BLAKE2b hashes
+        run: b2sum *.tar.zst
+      - name: Upload pre-built binaries as artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: pre-built-binaries-macos
+          path: '*.tar.zst'
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 1
+  release:
+    runs-on: ubuntu-latest
+    needs: [ubuntu, macos]
+    permissions:
+      contents: write
+    if: github.ref_type == 'tag'
+    steps:
+      - name: Download Linux pre-built binaries
+        uses: actions/download-artifact@v5
+        with:
+          name: pre-built-binaries-linux
+      - name: Download MacOS pre-built binaries
+        uses: actions/download-artifact@v5
+        with:
+          name: pre-built-binaries-macos
+      - name: Print BLAKE2b hashes
+        run: b2sum *.tar.zst
+      - name: Create release
+        uses: actions/create-release@v1
+        id: create_release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref_name }}
+          release_name: Release ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+      - name: Upload x86_64-unknown-linux-gnu binary
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: root-${{ github.ref_name }}-x86_64-unknown-linux-gnu.tar.zst
+          asset_name: root-${{ github.ref_name }}-x86_64-unknown-linux-gnu.tar.zst
+          asset_content_type: application/zstd
+      - name: Upload x86_64-unknown-linux-musl binary
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: root-${{ github.ref_name }}-x86_64-unknown-linux-musl.tar.zst
+          asset_name: root-${{ github.ref_name }}-x86_64-unknown-linux-musl.tar.zst
+          asset_content_type: application/zstd
+      - name: Upload aarch64-apple-darwin binary
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: root-${{ github.ref_name }}-aarch64-apple-darwin.tar.zst
+          asset_name: root-${{ github.ref_name }}-aarch64-apple-darwin.tar.zst
+          asset_content_type: application/zstd
